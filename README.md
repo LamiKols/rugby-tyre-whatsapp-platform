@@ -1,6 +1,6 @@
 # Rugby Tyre Services WhatsApp Business Platform
 
-Phase 1 builds the foundation for a WhatsApp-native operations system for Rugby Tyre Services in Rugby, England. Customers interact through WhatsApp. The owner and staff use a lightweight dashboard only where it helps them see conversations, handoffs, customers, tyre catalogue entries, and system health.
+Phase 1 builds the foundation for a WhatsApp-native operations system for Rugby Tyre Services in Rugby, England. Phase 1.5 adds a polished public customer landing page while keeping the staff dashboard protected. Customers interact through WhatsApp or phone. The owner and staff use a lightweight dashboard only where it helps them see conversations, handoffs, customers, tyre catalogue entries, and system health.
 
 This repository is intended to follow the delivery path:
 
@@ -23,7 +23,7 @@ The codebase keeps reusable WhatsApp trades-business logic separate from tyre-sp
 - `core/`: reusable platform logic for WhatsApp webhook handling, Twilio signature verification, message logging, conversation state, generic handoff, audit logging, health checks, validation, security middleware, and future job/booking/payment foundations.
 - `modules/tyres/`: tyre-specific logic for tyre size parsing, normalisation, catalogue lookup, tyre seed data, and the Rugby Tyre Phase 1 WhatsApp menu behavior.
 - `server/`: Express routes, Prisma-backed repositories, Twilio outbound sending, and API composition.
-- `dashboard/`: React + Vite owner dashboard.
+- `dashboard/`: React + Vite public landing page, admin login, and owner dashboard.
 - `prisma/`: PostgreSQL schema, migration, and seed script.
 
 Core code does not contain tyre-size parsing or tyre catalogue rules. Tyre logic lives in `modules/tyres`.
@@ -45,6 +45,9 @@ Core code does not contain tyre-size parsing or tyre catalogue rules. Tyre logic
 
 ## What Is Live In Phase 1
 
+- Public landing page at `/`
+- Staff login route at `/admin`
+- Protected staff dashboard routes at `/dashboard` and `/dashboard/*`
 - Express TypeScript backend
 - PostgreSQL Prisma schema and migration
 - Twilio WhatsApp webhook endpoint at `POST /webhooks/twilio/whatsapp`
@@ -60,6 +63,22 @@ Core code does not contain tyre-size parsing or tyre catalogue rules. Tyre logic
 - Health endpoint at `GET /health`
 - Admin-password protected dashboard APIs
 - Tests for parser, lookup, routing, retry/handoff behavior, signature rejection, and message logging
+
+## Route Structure
+
+- `/`: public customer-facing landing page for Rugby Tyre Services
+- `/admin`: staff/admin login page
+- `/dashboard`: protected operations dashboard
+- `/dashboard/conversations`: protected conversations page
+- `/dashboard/customers`: protected customers page
+- `/dashboard/tyres`: protected tyre catalogue page
+- `/dashboard/handoffs`: protected handoffs page
+- `/dashboard/settings`: protected settings placeholder
+- `/health`: public health endpoint
+- `/webhooks/twilio/whatsapp`: Twilio WhatsApp webhook endpoint
+- `/api/*`: backend API routes
+
+Unauthenticated staff users who visit dashboard routes see the staff login experience. Dashboard data APIs are protected by the admin session middleware.
 
 ## What Is Stubbed In Phase 1
 
@@ -97,6 +116,15 @@ Set at minimum:
 DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DATABASE
 SESSION_SECRET=replace-with-at-least-16-characters
 ADMIN_PASSWORD=replace-with-a-real-password
+VITE_PUBLIC_BUSINESS_NAME=Rugby Tyre Services
+VITE_PUBLIC_BUSINESS_LOCATION=Rugby, England
+```
+
+Add public contact CTAs when the owner confirms them:
+
+```bash
+VITE_PUBLIC_WHATSAPP_URL=https://wa.me/...
+VITE_PUBLIC_PHONE_NUMBER=...
 ```
 
 Generate Prisma Client:
@@ -141,9 +169,11 @@ Run the Vite dashboard during local development:
 npm run dev:dashboard
 ```
 
-After a production build, the Express app serves the dashboard from:
+After a production build, the Express app serves the public site and staff routes from:
 
 ```text
+/
+/admin
 /dashboard
 /dashboard/conversations
 /dashboard/customers
@@ -164,7 +194,13 @@ TWILIO_AUTH_TOKEN=
 TWILIO_WHATSAPP_NUMBER=
 TWILIO_WEBHOOK_SECRET=
 ADMIN_PASSWORD=
+VITE_PUBLIC_WHATSAPP_URL=
+VITE_PUBLIC_PHONE_NUMBER=
+VITE_PUBLIC_BUSINESS_NAME=Rugby Tyre Services
+VITE_PUBLIC_BUSINESS_LOCATION=Rugby, England
 ```
+
+The `VITE_PUBLIC_*` values are safe for frontend use. Do not expose private Twilio credentials such as `TWILIO_ACCOUNT_SID` or `TWILIO_AUTH_TOKEN` in frontend code.
 
 Future phase placeholders:
 
@@ -183,6 +219,8 @@ BUSINESS_ADDRESS=
 
 Public/system:
 
+- `GET /`
+- `GET /admin`
 - `GET /health`
 - `POST /webhooks/twilio/whatsapp`
 
@@ -205,7 +243,7 @@ Dashboard APIs:
 - `PATCH /api/dashboard/handoffs/:id/resolve`
 - `GET /api/dashboard/settings`
 
-Dashboard frontend routes are served under `/dashboard/*`.
+Dashboard frontend routes are served under `/dashboard/*` and remain protected by the frontend session check plus protected `/api/dashboard/*` endpoints.
 
 ## Twilio WhatsApp Setup Notes
 
@@ -280,7 +318,7 @@ All seeded prices are explicitly marked as placeholder data and must be replaced
 
 ## Replit Deployment Notes
 
-Do not deploy Phase 1 before the PR is reviewed and merged into `main`.
+Do not deploy Phase 1 or Phase 1.5 before the PR is reviewed and merged into `main`.
 
 When ready:
 
@@ -294,6 +332,14 @@ When ready:
 8. Run `npm run build`.
 9. Start with `npm start`.
 10. Configure the Twilio webhook to the Replit public URL plus `/webhooks/twilio/whatsapp`.
+11. Set `VITE_PUBLIC_WHATSAPP_URL` and `VITE_PUBLIC_PHONE_NUMBER` before building if the public CTAs should link directly to WhatsApp and phone.
+
+After deployment:
+
+- `/` should show the public landing page.
+- `/admin` should show staff login.
+- `/dashboard` should require staff authentication.
+- `/health` and `/webhooks/twilio/whatsapp` should remain available.
 
 ## Security Notes
 
@@ -304,12 +350,15 @@ When ready:
 - Webhook route has basic rate limiting.
 - Inbound bodies are trimmed and capped before logging.
 - Raw webhook payloads are stored for debugging/audit but are not shown in the dashboard UI.
+- Public frontend code uses only `VITE_PUBLIC_*` contact values and does not expose Twilio secrets.
 - Audit logs are written for handoff events and tyre catalogue changes.
 - Production dependency audit check used: `npm audit --omit=dev --audit-level=critical`.
 
 ## Known Limitations
 
 - The tyre catalogue uses placeholder seed prices.
+- Public WhatsApp and phone CTAs need the owner-confirmed WhatsApp URL and phone number.
+- The public page uses safe trust wording but does not include real testimonials yet.
 - The dashboard cannot send WhatsApp replies yet.
 - Appointment booking and mobile callout flows are handoff-only in Phase 1.
 - Media/photo files are logged as metadata only; no image processing or owner preview is built yet.
@@ -510,4 +559,9 @@ Phase 2 should include:
 15. Preferred wording for payment messages
 16. Cancellation/rebooking policy
 17. Whether owner wants dashboard replies or WhatsApp-only replies
-
+18. Real public WhatsApp link
+19. Real public phone number
+20. Exact address or preferred public service area wording
+21. Whether 24hr mobile service should be worded as always available or subject to confirmation
+22. Final approved service list for the public page
+23. Real review wording if the owner wants testimonials
