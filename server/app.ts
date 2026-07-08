@@ -1,5 +1,4 @@
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
@@ -11,9 +10,6 @@ import { prisma as defaultPrisma } from "../core/db/prisma.js";
 import { createAuthRoutes } from "./routes/authRoutes.js";
 import { createDashboardRoutes } from "./routes/dashboardRoutes.js";
 import { createTwilioWebhookRoutes } from "./routes/twilioWebhookRoutes.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 export interface CreateAppOptions {
   env: AppEnv;
@@ -39,29 +35,26 @@ export function createApp(options: CreateAppOptions) {
   app.use("/api/dashboard", createDashboardRoutes(options.env, prisma));
   app.use("/webhooks/twilio", createTwilioWebhookRoutes(options.env, prisma));
 
-  const dashboardDist = path.resolve(__dirname, "../dist-dashboard");
+  const dashboardDist = path.resolve(process.cwd(), "dist-dashboard");
   app.use(express.static(dashboardDist));
 
-  const dashboardPages = [
-    "/dashboard",
-    "/dashboard/conversations",
-    "/dashboard/customers",
-    "/dashboard/tyres",
-    "/dashboard/handoffs",
-    "/dashboard/settings"
-  ];
-
-  for (const page of dashboardPages) {
-    app.get(page, (_req, res) => {
-      res.sendFile(path.join(dashboardDist, "index.html"), (error) => {
-        if (error) {
-          res
-            .status(200)
-            .send("Dashboard frontend is not built yet. Run npm run build:dashboard, then start the server.");
-        }
-      });
+  function sendFrontend(_req: express.Request, res: express.Response) {
+    res.sendFile(path.join(dashboardDist, "index.html"), (error) => {
+      if (error) {
+        res
+          .status(200)
+          .send("Frontend is not built yet. Run npm run build:dashboard, then start the server.");
+      }
     });
   }
+
+  const spaPages = ["/", "/admin", "/dashboard"];
+
+  for (const page of spaPages) {
+    app.get(page, sendFrontend);
+  }
+
+  app.get("/dashboard/*", sendFrontend);
 
   app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error(error);
@@ -70,4 +63,3 @@ export function createApp(options: CreateAppOptions) {
 
   return app;
 }
-

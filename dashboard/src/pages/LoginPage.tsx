@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LockKeyhole } from "lucide-react";
+import { ArrowLeft, LockKeyhole } from "lucide-react";
 import { api } from "../lib/api";
 
 interface LoginPageProps {
@@ -30,13 +30,14 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center bg-slate-50 px-4">
+    <main className="grid min-h-screen place-items-center bg-slate-50 px-4 py-10">
       <form className="panel w-full max-w-md p-6" onSubmit={submit}>
         <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-whatsapp-50 text-whatsapp-700">
           <LockKeyhole className="h-6 w-6" />
         </div>
-        <h1 className="text-2xl font-bold">Rugby Tyre Services</h1>
-        <p className="mt-2 text-sm text-slate-600">Enter the Phase 1 admin password to view WhatsApp operations.</p>
+        <p className="text-sm font-semibold text-whatsapp-700">Rugby Tyre Services</p>
+        <h1 className="mt-1 text-2xl font-bold">Rugby Tyre Services Staff Login</h1>
+        <p className="mt-2 text-sm text-slate-600">Access the WhatsApp operations dashboard.</p>
         <label className="mt-6 block text-sm font-semibold text-charcoal" htmlFor="password">
           Admin password
         </label>
@@ -49,10 +50,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         />
         {error ? <p className="mt-3 text-sm font-semibold text-red-600">{error}</p> : null}
         <button className="button-primary mt-5 w-full" disabled={loading || !password}>
-          {loading ? "Checking..." : "Open dashboard"}
+          {loading ? "Checking..." : "Sign in"}
         </button>
+        <a className="mt-5 inline-flex items-center text-sm font-semibold text-slate-600 transition hover:text-whatsapp-700" href="/">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to public site
+        </a>
       </form>
     </main>
   );
 }
-
