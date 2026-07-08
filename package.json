@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch server/index.ts",
     "dev:dashboard": "vite --config dashboard.vite.config.mjs --configLoader native",
+    "dev:all": "concurrently \"npm run dev\" \"npm run dev:dashboard\"",
     "build": "npm run build:server && npm run build:dashboard",
     "build:server": "tsc -p tsconfig.server.json",
     "build:dashboard": "vite build --config dashboard.vite.config.mjs --configLoader native",
@@ -20,6 +21,7 @@
     "@prisma/client": "^6.10.1",
     "@vitejs/plugin-react": "^4.3.4",
     "bcryptjs": "^2.4.3",
+    "concurrently": "^9.2.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
@@ -40,16 +42,13 @@
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
-    "@types/supertest": "^6.0.2",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
     "prisma": "^6.10.1",
-    "supertest": "^7.0.0",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
-    "vite": "^6.0.6",
-    "vitest": "^2.1.8"
+    "vite": "^6.0.6"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
