@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                     String         @id @default(cuid())
+  name                   String
+  email                  String         @unique
+  password_hash          String?
+  role                   String         @default("owner")
+  active                 Boolean        @default(true)
+  created_at             DateTime       @default(now())
+  updated_at             DateTime       @updatedAt
+  assigned_conversations Conversation[] @relation("AssignedConversations")
+
+  @@map("users")
+}
+
+model Customer {
+  id            String                @id @default(cuid())
+  phone         String                @unique
+  whatsapp_id   String?
+  name          String?
+  email         String?
+  notes         String?
+  first_seen_at DateTime              @default(now())
+  last_seen_at  DateTime              @default(now())
+  created_at    DateTime              @default(now())
+  updated_at    DateTime              @updatedAt
+  conversations Conversation[]
+  messages      ConversationMessage[]
+  jobs          Job[]
+
+  @@map("customers")
+}
+
+model Conversation {
+  id               String                @id @default(cuid())
+  customer_id      String
+  channel          String                @default("whatsapp")
+  status           String                @default("active")
+  current_intent   String?
+  current_state    String                @default("menu")
+  failed_attempts  Int                   @default(0)
+  handoff_required Boolean               @default(false)
+  handoff_reason   String?
+  assigned_user_id String?
+  created_at       DateTime              @default(now())
+  updated_at       DateTime              @updatedAt
+  customer         Customer              @relation(fields: [customer_id], references: [id])
+  assigned_user    User?                 @relation("AssignedConversations", fields: [assigned_user_id], references: [id])
+  messages         ConversationMessage[]
+
+  @@index([customer_id])
+  @@index([handoff_required])
+  @@map("conversations")
+}
+
+model ConversationMessage {
+  id                  String       @id @default(cuid())
+  conversation_id     String
+  customer_id         String
+  direction           String
+  provider            String       @default("twilio")
+  provider_message_id String?
+  body                String?
+  message_type        String       @default("text")
+  media_url           String?
+  location_lat        Decimal?     @db.Decimal(10, 7)
+  location_lng        Decimal?     @db.Decimal(10, 7)
+  raw_payload         Json?
+  created_at          DateTime     @default(now())
+  conversation        Conversation @relation(fields: [conversation_id], references: [id])
+  customer            Customer     @relation(fields: [customer_id], references: [id])
+
+  @@index([conversation_id, created_at])
+  @@map("conversation_messages")
+}
+
+model TyreCatalogue {
+  id                       String   @id @default(cuid())
+  size                     String
+  width                    Int
+  profile                  Int
+  rim                      Int
+  brand                    String
+  category                 String
+  price                    Decimal  @db.Decimal(10, 2)
+  fitted_price             Decimal  @db.Decimal(10, 2)
+  availability_status      String   @default("available")
+  quantity_available       Int?
+  is_placeholder_seed_data Boolean  @default(true)
+  notes                    String?
+  active                   Boolean  @default(true)
+  created_at               DateTime @default(now())
+  updated_at               DateTime @updatedAt
+
+  @@index([size])
+  @@map("tyre_catalogue")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actor_type  String
+  actor_id    String?
+  action      String
+  entity_type String
+  entity_id   String?
+  metadata    Json?
+  created_at  DateTime @default(now())
+
+  @@index([entity_type, entity_id])
+  @@map("audit_logs")
+}
+
+model Job {
+  id                   String    @id @default(cuid())
+  job_reference        String    @unique
+  customer_id          String
+  vehicle_registration String?
+  job_type             String
+  source               String
+  status               String    @default("new")
+  scheduled_start      DateTime?
+  scheduled_end        DateTime?
+  completed_at         DateTime?
+  issue_description    String?
+  tyre_size            String?
+  tyre_brand           String?
+  price                Decimal?  @db.Decimal(10, 2)
+  payment_status       String?
+  notes                String?
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
+  customer             Customer  @relation(fields: [customer_id], references: [id])
+
+  @@index([customer_id])
+  @@index([status])
+  @@map("jobs")
+}
+
