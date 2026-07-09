@@ -1,5 +1,6 @@
 import {
   Gauge,
+  CalendarDays,
   MessageCircle,
   Settings,
   Siren,
@@ -9,6 +10,7 @@ import {
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard Home", icon: Gauge },
+  { href: "/dashboard/jobs", label: "Jobs / Schedule", icon: CalendarDays },
   { href: "/dashboard/conversations", label: "Conversations", icon: MessageCircle },
   { href: "/dashboard/customers", label: "Customers", icon: Users },
   { href: "/dashboard/tyres", label: "Tyre Catalogue", icon: Tags },
@@ -33,7 +35,7 @@ export function Layout({ children, onLogout }: LayoutProps) {
         </div>
         <nav className="mt-6 space-y-1">
           {navItems.map((item) => {
-            const active = currentPath === item.href;
+            const active = currentPath === item.href || (item.href === "/dashboard/jobs" && currentPath.startsWith("/dashboard/jobs"));
             const Icon = item.icon;
 
             return (
@@ -88,4 +90,3 @@ export function Layout({ children, onLogout }: LayoutProps) {
     </div>
   );
 }
-

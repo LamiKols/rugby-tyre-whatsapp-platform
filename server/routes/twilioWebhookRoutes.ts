@@ -8,6 +8,7 @@ import { verifyTwilioSignature } from "../../core/security/twilioSignature.js";
 import { TyreConversationFlow } from "../../modules/tyres/tyreConversationFlow.js";
 import { PrismaAuditLogger } from "../repositories/prismaAuditLogger.js";
 import { PrismaConversationRepository } from "../repositories/prismaConversationRepository.js";
+import { PrismaJobRepository } from "../repositories/prismaJobRepository.js";
 import { PrismaTyreCatalogueRepository } from "../repositories/prismaTyreCatalogueRepository.js";
 import { TwilioOutboundMessenger } from "../services/twilioOutboundMessenger.js";
 import type { PrismaClient } from "@prisma/client";
@@ -26,7 +27,8 @@ export function createTwilioWebhookRoutes(env: AppEnv, prisma: PrismaClient) {
   const router = Router();
   const conversationRepository = new PrismaConversationRepository(prisma);
   const tyreRepository = new PrismaTyreCatalogueRepository(prisma);
-  const flow = new TyreConversationFlow(tyreRepository);
+  const jobRepository = new PrismaJobRepository(prisma);
+  const flow = new TyreConversationFlow(tyreRepository, jobRepository);
   const messenger = new TwilioOutboundMessenger(env);
   const auditLogger = new PrismaAuditLogger(prisma);
 
@@ -81,4 +83,3 @@ export function createTwilioWebhookRoutes(env: AppEnv, prisma: PrismaClient) {
 
   return router;
 }
-

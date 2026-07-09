@@ -1,4 +1,4 @@
-const HANDOFF_TRIGGERS = new Set(["HELP", "HUMAN", "SPEAK TO SOMEONE"]);
+const HANDOFF_TRIGGERS = new Set(["HELP", "HUMAN", "CALL", "SPEAK TO SOMEONE"]);
 
 export function isHumanHandoffRequest(message: string): boolean {
   return HANDOFF_TRIGGERS.has(message.trim().toUpperCase());

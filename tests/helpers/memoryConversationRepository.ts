@@ -52,6 +52,7 @@ export class MemoryConversationRepository implements ConversationRepository {
       current_intent: null,
       current_state: "menu",
       failed_attempts: 0,
+      state_data: null,
       handoff_required: false,
       handoff_reason: null
     };
@@ -78,4 +79,3 @@ export class MemoryConversationRepository implements ConversationRepository {
     this.messages.push(input);
   }
 }
-

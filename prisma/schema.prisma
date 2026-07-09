@@ -47,6 +47,7 @@ model Conversation {
   current_intent   String?
   current_state    String                @default("menu")
   failed_attempts  Int                   @default(0)
+  state_data       Json?
   handoff_required Boolean               @default(false)
   handoff_reason   String?
   assigned_user_id String?
@@ -55,6 +56,7 @@ model Conversation {
   customer         Customer              @relation(fields: [customer_id], references: [id])
   assigned_user    User?                 @relation("AssignedConversations", fields: [assigned_user_id], references: [id])
   messages         ConversationMessage[]
+  jobs             Job[]
 
   @@index([customer_id])
   @@index([handoff_required])
@@ -122,25 +124,42 @@ model Job {
   id                   String    @id @default(cuid())
   job_reference        String    @unique
   customer_id          String
+  conversation_id      String?
   vehicle_registration String?
   job_type             String
   source               String
-  status               String    @default("new")
+  status               String    @default("new_request")
+  service_required     String?
   scheduled_start      DateTime?
   scheduled_end        DateTime?
   completed_at         DateTime?
   issue_description    String?
+  address_text         String?
+  location_lat         Decimal?  @db.Decimal(10, 7)
+  location_lng         Decimal?  @db.Decimal(10, 7)
+  location_source      String?
+  preferred_date       DateTime?
+  preferred_time_text  String?
+  urgency              String    @default("unknown")
   tyre_size            String?
   tyre_brand           String?
   price                Decimal?  @db.Decimal(10, 2)
-  payment_status       String?
+  price_estimate       Decimal?  @db.Decimal(10, 2)
+  payment_status       String?   @default("pending")
   notes                String?
+  internal_notes       String?
+  customer_notes       String?
+  cancellation_reason  String?
+  reschedule_requested_text String?
   created_at           DateTime  @default(now())
   updated_at           DateTime  @updatedAt
   customer             Customer  @relation(fields: [customer_id], references: [id])
+  conversation         Conversation? @relation(fields: [conversation_id], references: [id])
 
   @@index([customer_id])
+  @@index([conversation_id])
   @@index([status])
+  @@index([source])
+  @@index([urgency])
   @@map("jobs")
 }
-

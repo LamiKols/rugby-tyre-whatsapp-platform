@@ -14,10 +14,17 @@ function toConversationRecord(conversation: {
   current_intent: string | null;
   current_state: string;
   failed_attempts: number;
+  state_data: unknown;
   handoff_required: boolean;
   handoff_reason: string | null;
 }): ConversationRecord {
-  return conversation;
+  return {
+    ...conversation,
+    state_data:
+      conversation.state_data && typeof conversation.state_data === "object"
+        ? (conversation.state_data as Record<string, unknown>)
+        : null
+  };
 }
 
 function toCustomerRecord(customer: {
@@ -88,7 +95,10 @@ export class PrismaConversationRepository implements ConversationRepository {
   async updateConversation(conversationId: string, patch: ConversationPatch): Promise<ConversationRecord> {
     const conversation = await this.prisma.conversation.update({
       where: { id: conversationId },
-      data: patch
+      data: {
+        ...patch,
+        state_data: patch.state_data as Prisma.InputJsonValue | undefined
+      }
     });
 
     return toConversationRecord(conversation);

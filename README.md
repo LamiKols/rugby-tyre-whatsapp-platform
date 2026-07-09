@@ -64,11 +64,31 @@ Core code does not contain tyre-size parsing or tyre catalogue rules. Tyre logic
 - Admin-password protected dashboard APIs
 - Tests for parser, lookup, routing, retry/handoff behavior, signature rejection, and message logging
 
+## What Is Live In Phase 2
+
+Phase 2 turns the dashboard into a practical job control centre for the owner:
+
+- Manual job capture for phone, walk-in, and direct customer work
+- Protected jobs/schedule board at `/dashboard/jobs`
+- Job detail view with owner status actions
+- WhatsApp mobile job intake flow from menu option `2`
+- Pending WhatsApp jobs created with `status = awaiting_owner_confirmation`
+- Owner-controlled confirmation, cancellation, reschedule, no-show, progress, payment, and completion statuses
+- Cancellation and reschedule intent detection from WhatsApp
+- Basic WhatsApp confirmation/cancellation/reschedule messages after owner action
+- Job source, urgency, payment status, customer, vehicle, tyre, address/location, and notes tracking
+- Dashboard home job summary cards for today's jobs, pending WhatsApp requests, emergency jobs, reschedules, cancellations, and payment pending
+- Database migration adding Phase 2 job fields and conversation state data
+
+The owner remains in control. WhatsApp intake records a request, but it does not fully confirm the job until the owner confirms it.
+
 ## Route Structure
 
 - `/`: public customer-facing landing page for Rugby Tyre Services
 - `/admin`: staff/admin login page
 - `/dashboard`: protected operations dashboard
+- `/dashboard/jobs`: protected jobs and schedule board
+- `/dashboard/jobs/:id`: protected job detail view
 - `/dashboard/conversations`: protected conversations page
 - `/dashboard/customers`: protected customers page
 - `/dashboard/tyres`: protected tyre catalogue page
@@ -94,7 +114,7 @@ Unauthenticated staff users who visit dashboard routes see the staff login exper
 - Accounting integrations
 - Multi-tenant SaaS controls
 
-Options 1 and 2 in WhatsApp intentionally reply with a coming-soon message and trigger human handoff.
+Option 1 in WhatsApp intentionally replies with a coming-soon message and triggers human handoff. Option 2 now starts structured mobile tyre job intake.
 
 ## Local Setup
 
@@ -233,6 +253,11 @@ Auth:
 Dashboard APIs:
 
 - `GET /api/dashboard/summary`
+- `GET /api/dashboard/jobs`
+- `POST /api/dashboard/jobs`
+- `GET /api/dashboard/jobs/:id`
+- `PATCH /api/dashboard/jobs/:id`
+- `PATCH /api/dashboard/jobs/:id/status`
 - `GET /api/dashboard/conversations`
 - `GET /api/dashboard/conversations/:id`
 - `GET /api/dashboard/customers`
@@ -282,10 +307,10 @@ How can we help?
 Phase 1 behavior:
 
 - `1`: appointment booking coming soon, then human handoff
-- `2`: mobile/emergency callout coming soon, then human handoff
+- `2`: starts structured mobile tyre job intake
 - `3`: asks for tyre size and performs lookup
 - `4`: human handoff
-- `HELP`, `HUMAN`, or `SPEAK TO SOMEONE`: human handoff
+- `HELP`, `HUMAN`, `CALL`, or `SPEAK TO SOMEONE`: human handoff
 - Unknown messages: asks the customer to choose again
 - Two failed attempts: marks the conversation as `handoff_required`
 
@@ -298,6 +323,129 @@ Tyre lookup accepts:
 - `2055516`
 
 All are normalised to `205/55/R16`.
+
+## Phase 2 Job Workflow
+
+### Manual Job Capture
+
+Staff can create jobs from `/dashboard/jobs` for traditional shop workflows:
+
+- Customer name
+- Phone number
+- Vehicle registration
+- Tyre size
+- Tyre brand/category
+- Job type
+- Job source
+- Service required
+- Issue description
+- Address/location text
+- Preferred date
+- Preferred time
+- Urgency
+- Price estimate
+- Internal notes
+- Payment status
+
+Manual saves require only customer phone or customer name, job type, and service required. Defaults are intentionally quick:
+
+- `source = manual`
+- `status = confirmed`
+- `payment_status = pending`
+- `urgency = unknown`
+
+Manual source options are `manual`, `walk_in`, and `phone`.
+
+### WhatsApp Mobile Job Intake
+
+When a customer chooses option `2` from the WhatsApp menu, the assistant collects mobile tyre service details one question at a time:
+
+1. Customer name
+2. Vehicle registration
+3. Tyre size or tyre-wall photo
+4. Issue type
+5. Address, postcode, or WhatsApp location
+6. Whether the vehicle is at home, work, roadside, or elsewhere
+7. Preferred service date/time text
+8. Urgency
+9. Additional notes
+
+The system creates a job with:
+
+- `source = whatsapp`
+- `job_type = mobile` or `emergency_mobile`
+- `status = awaiting_owner_confirmation`
+
+The customer receives:
+
+```text
+Thanks. Your mobile tyre request has been received.
+
+Rugby Tyre Services will confirm availability and timing shortly.
+```
+
+### Job Sources
+
+Supported source values:
+
+- `manual`: owner/staff manually entered the job
+- `walk_in`: customer came into the shop
+- `whatsapp`: captured through WhatsApp intake
+- `phone`: owner/staff manually entered after a phone call
+- `future_phone_ai`: reserved for a later phone-call AI assistant
+
+### Job Types
+
+Supported job types:
+
+- `mobile`
+- `emergency_mobile`
+- `in_shop`
+- `walk_in`
+- `phone_booking`
+- `other`
+
+### Job Statuses
+
+Supported lifecycle statuses:
+
+- `new_request`
+- `awaiting_owner_confirmation`
+- `confirmed`
+- `scheduled`
+- `reschedule_requested`
+- `rescheduled`
+- `cancellation_requested`
+- `cancelled`
+- `no_show`
+- `en_route`
+- `arrived`
+- `in_progress`
+- `completed`
+- `payment_pending`
+- `paid`
+- `unable_to_complete`
+
+The schedule board shows status and source badges on every job card. Emergency jobs are highlighted.
+
+### Cancellation And Rebooking
+
+WhatsApp cancellation phrases such as `cancel my booking`, `I can't make it`, and `I no longer need it` are detected when there is one clear active job. The job is moved to `cancellation_requested`, the customer is told the request has been sent to Rugby Tyre Services, and the dashboard highlights it for owner review.
+
+WhatsApp reschedule phrases such as `can you come later?`, `can I move it to tomorrow?`, and `can I rebook?` are detected when there is one clear active job. The system asks for the preferred new time, stores the text, and shows the job as `reschedule_requested`.
+
+The system does not automatically cancel or reschedule confirmed work without owner approval.
+
+### Payment Status Foundation
+
+Payment links are not built yet. Phase 2 supports manual payment status tracking:
+
+- `not_required`
+- `pending`
+- `payment_pending`
+- `paid`
+- `part_paid`
+- `failed`
 
 ## Seed Tyre Catalogue
 
@@ -318,7 +466,7 @@ All seeded prices are explicitly marked as placeholder data and must be replaced
 
 ## Replit Deployment Notes
 
-Do not deploy Phase 1 or Phase 1.5 before the PR is reviewed and merged into `main`.
+Do not deploy Phase 2 before the PR is reviewed and merged into `main`.
 
 When ready:
 
@@ -327,7 +475,7 @@ When ready:
 3. Provision PostgreSQL and set `DATABASE_URL`.
 4. Run `npm install`.
 5. Run `npm run db:generate`.
-6. Run `npm run db:migrate`.
+6. Run `npm run db:migrate` to apply the Phase 2 jobs migration.
 7. Run `npm run db:seed`.
 8. Run `npm run build`.
 9. Start with `npm start`.
@@ -359,8 +507,13 @@ After deployment:
 - The tyre catalogue uses placeholder seed prices.
 - Public WhatsApp and phone CTAs need the owner-confirmed WhatsApp URL and phone number.
 - The public page uses safe trust wording but does not include real testimonials yet.
-- The dashboard cannot send WhatsApp replies yet.
-- Appointment booking and mobile callout flows are handoff-only in Phase 1.
+- Owner must still confirm WhatsApp job requests manually.
+- Dashboard WhatsApp messaging is limited to owner action messages for confirmation, cancellation, and reschedule outcomes.
+- Phone-call AI assistant is not built yet.
+- Google Maps/geocoding is not built yet.
+- Stripe/payment links are not built yet.
+- AI/Claude free-text interpretation is not built yet.
+- Scheduling does not yet optimise routes.
 - Media/photo files are logged as metadata only; no image processing or owner preview is built yet.
 - No Stripe, bank transfer automation, maps, AI, reporting, supplier delivery, rota, or accounting features are built.
 - Dashboard auth is intentionally simple for Phase 1 and should evolve before wider staff rollout.
@@ -411,9 +564,9 @@ Enquiry -> Quote Sent -> Accepted -> Booked -> Confirmed -> Completed -> Paid
 
 Also support quote declined and quote expired.
 
-### Cancellation and Rebooking Workflow
+### Deeper Cancellation and Rebooking Workflow
 
-Phase 2 should plan for customers messaging:
+Phase 2 supports simple cancellation and reschedule requests. Later phases should deepen this workflow for customers messaging:
 
 - Can I come later?
 - Can I change to tomorrow?
@@ -524,21 +677,25 @@ Future monitoring should include:
 - Database connection status
 - System status card
 
-## Phase 2 Planning Note
+## Phase 3 Planning Note
 
-Phase 2: Appointment Booking, Cancellation and Rebooking
+Phase 3: Phone-Call AI Assistant
 
-Phase 2 should include:
+Do not build phone-call AI until a later phase. The future phone-call AI assistant should:
 
-- In-shop appointment booking
-- Booking capacity rules
-- Booking confirmation
-- Reschedule request
-- Cancellation request
-- No-show status
-- Owner approval where needed
-- Appointment dashboard/calendar
-- Manual walk-in job creation foundation
+1. Answer or handle overflow calls
+2. Collect customer name
+3. Collect callback number
+4. Collect vehicle registration
+5. Collect tyre size
+6. Collect issue description
+7. Collect address
+8. Collect preferred time
+9. Collect urgency
+10. Create pending job with source `future_phone_ai`
+11. Let owner confirm before customer receives final booking confirmation
+
+Phase 3 should build on the Phase 2 job source and owner approval model.
 
 ## Information Needed From Rugby Tyre Services
 

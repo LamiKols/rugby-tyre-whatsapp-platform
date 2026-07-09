@@ -9,8 +9,13 @@ import { TyreCataloguePage } from "./pages/TyreCataloguePage";
 import { HandoffsPage } from "./pages/HandoffsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { PublicLandingPage } from "./pages/PublicLandingPage";
+import { JobsSchedulePage } from "./pages/JobsSchedulePage";
 
 function route() {
+  if (window.location.pathname.startsWith("/dashboard/jobs")) {
+    return <JobsSchedulePage />;
+  }
+
   switch (window.location.pathname) {
     case "/dashboard/conversations":
       return <ConversationsPage />;
