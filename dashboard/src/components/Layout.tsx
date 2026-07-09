@@ -9,26 +9,34 @@ import {
   Tags,
   Users
 } from "lucide-react";
-
-const navItems = [
-  { href: "/dashboard", label: "Dashboard Home", icon: Gauge },
-  { href: "/dashboard/jobs", label: "Jobs / Schedule", icon: CalendarDays },
-  { href: "/dashboard/job-log", label: "Job Log", icon: ClipboardList },
-  { href: "/dashboard/quotes", label: "Quotes", icon: ReceiptText },
-  { href: "/dashboard/conversations", label: "Conversations", icon: MessageCircle },
-  { href: "/dashboard/customers", label: "Customers", icon: Users },
-  { href: "/dashboard/tyres", label: "Tyre Catalogue", icon: Tags },
-  { href: "/dashboard/handoffs", label: "Handoffs", icon: Siren },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings }
-];
+import {
+  canManageUsers,
+  canViewConversations,
+  canViewCustomers,
+  roleLabel,
+  type SessionUser
+} from "../lib/auth";
+import { StatusBadge } from "./StatusBadge";
 
 interface LayoutProps {
   children: React.ReactNode;
+  user: SessionUser;
   onLogout: () => void;
 }
 
-export function Layout({ children, onLogout }: LayoutProps) {
+export function Layout({ children, user, onLogout }: LayoutProps) {
   const currentPath = window.location.pathname;
+  const navItems = [
+    { href: "/dashboard", label: "Dashboard Home", icon: Gauge, visible: true },
+    { href: "/dashboard/jobs", label: "Jobs / Schedule", icon: CalendarDays, visible: true },
+    { href: "/dashboard/job-log", label: "Job Log", icon: ClipboardList, visible: true },
+    { href: "/dashboard/quotes", label: "Quotes", icon: ReceiptText, visible: true },
+    { href: "/dashboard/conversations", label: "Conversations", icon: MessageCircle, visible: canViewConversations(user) },
+    { href: "/dashboard/customers", label: "Customers", icon: Users, visible: canViewCustomers(user) },
+    { href: "/dashboard/tyres", label: "Tyre Catalogue", icon: Tags, visible: user.role !== "viewer" },
+    { href: "/dashboard/handoffs", label: "Handoffs", icon: Siren, visible: canViewConversations(user) },
+    { href: "/dashboard/settings", label: "Settings", icon: Settings, visible: canManageUsers(user) }
+  ];
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -36,9 +44,13 @@ export function Layout({ children, onLogout }: LayoutProps) {
         <div className="rounded-lg bg-whatsapp-50 p-4">
           <p className="text-sm font-semibold text-whatsapp-700">Rugby Tyre Services</p>
           <h1 className="mt-1 text-xl font-bold text-charcoal">WhatsApp Operations</h1>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <StatusBadge tone="green">{roleLabel(user.role)}</StatusBadge>
+            <span className="text-sm font-semibold text-slate-700">{user.name}</span>
+          </div>
         </div>
         <nav className="mt-6 space-y-1">
-          {navItems.map((item) => {
+          {navItems.filter((item) => item.visible).map((item) => {
             const active = currentPath === item.href || (item.href === "/dashboard/jobs" && currentPath.startsWith("/dashboard/jobs"));
             const Icon = item.icon;
 
@@ -68,13 +80,14 @@ export function Layout({ children, onLogout }: LayoutProps) {
           <div>
             <p className="text-xs font-semibold uppercase text-whatsapp-700">Rugby Tyre Services</p>
             <h1 className="text-lg font-bold">WhatsApp Operations</h1>
+            <p className="mt-1 text-xs font-semibold text-slate-600">{user.name} | {roleLabel(user.role)}</p>
           </div>
           <button className="button-secondary" onClick={onLogout}>
             Sign out
           </button>
         </div>
         <nav className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {navItems.map((item) => {
+          {navItems.filter((item) => item.visible).map((item) => {
             const Icon = item.icon;
             return (
               <a

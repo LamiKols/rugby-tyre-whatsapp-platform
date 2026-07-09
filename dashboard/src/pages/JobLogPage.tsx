@@ -3,6 +3,7 @@ import { CalendarPlus, ClipboardList, Plus } from "lucide-react";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { api, formatCurrency, formatDate } from "../lib/api";
+import { canWriteJobs, type SessionUser } from "../lib/auth";
 import {
   compactStatus,
   completedStatuses,
@@ -33,11 +34,16 @@ const emptyCompletedForm = {
   notes: ""
 };
 
-export function JobLogPage() {
+interface JobLogPageProps {
+  currentUser: SessionUser;
+}
+
+export function JobLogPage({ currentUser }: JobLogPageProps) {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [form, setForm] = useState(emptyCompletedForm);
   const [showForm, setShowForm] = useState(true);
   const [saving, setSaving] = useState(false);
+  const canManageLog = canWriteJobs(currentUser);
 
   function loadJobs() {
     api<Job[]>("/api/dashboard/jobs").then(setJobs).catch(console.error);
@@ -86,7 +92,7 @@ export function JobLogPage() {
       <PageHeader
         title="Job Log"
         eyebrow="Digital RTS sheet"
-        actions={
+        actions={canManageLog ? (
           <div className="flex flex-wrap gap-2">
             <button className="button-primary" onClick={() => setShowForm(true)}>
               <Plus className="mr-2 h-4 w-4" />
@@ -101,7 +107,7 @@ export function JobLogPage() {
               Add Mobile Job Request
             </a>
           </div>
-        }
+        ) : undefined}
       />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -163,7 +169,7 @@ export function JobLogPage() {
           </div>
         </section>
 
-        {showForm ? (
+        {showForm && canManageLog ? (
           <form className="panel h-fit p-5" onSubmit={saveCompletedJob}>
             <h3 className="text-lg font-bold">Add Completed Job</h3>
             <div className="mt-4 grid gap-3">

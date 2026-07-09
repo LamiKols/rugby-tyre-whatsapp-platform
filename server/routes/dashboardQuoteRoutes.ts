@@ -3,6 +3,7 @@ import { Router } from "express";
 import { type AuditLogger } from "../../core/audit/auditService.js";
 import { quoteConvertSchema, quoteCreateSchema, quotePatchSchema } from "../../core/quotes/quoteSchemas.js";
 import { createQuoteReference } from "../../core/quotes/quoteReference.js";
+import { auditActor, requirePermission } from "../../core/security/adminAuth.js";
 import { idParamSchema } from "../../core/validation/common.js";
 import { PrismaJobRepository } from "../repositories/prismaJobRepository.js";
 
@@ -82,7 +83,7 @@ export function createDashboardQuoteRoutes(prisma: PrismaClient, auditLogger: Au
     }
   });
 
-  router.post("/", async (req, res, next) => {
+  router.post("/", requirePermission("quotes:write"), async (req, res, next) => {
     try {
       const parsed = quoteCreateSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -107,7 +108,7 @@ export function createDashboardQuoteRoutes(prisma: PrismaClient, auditLogger: Au
       });
 
       await auditLogger.log({
-        actor_type: "admin",
+        ...auditActor(req),
         action: "quote.created",
         entity_type: "quote",
         entity_id: quote.id,
@@ -120,7 +121,7 @@ export function createDashboardQuoteRoutes(prisma: PrismaClient, auditLogger: Au
     }
   });
 
-  router.patch("/:id", async (req, res, next) => {
+  router.patch("/:id", requirePermission("quotes:write"), async (req, res, next) => {
     try {
       const params = idParamSchema.safeParse(req.params);
       const parsed = quotePatchSchema.safeParse(req.body);
@@ -148,7 +149,7 @@ export function createDashboardQuoteRoutes(prisma: PrismaClient, auditLogger: Au
       });
 
       await auditLogger.log({
-        actor_type: "admin",
+        ...auditActor(req),
         action: "quote.updated",
         entity_type: "quote",
         entity_id: quote.id,
@@ -161,7 +162,7 @@ export function createDashboardQuoteRoutes(prisma: PrismaClient, auditLogger: Au
     }
   });
 
-  router.post("/:id/convert", async (req, res, next) => {
+  router.post("/:id/convert", requirePermission("quotes:write"), async (req, res, next) => {
     try {
       const params = idParamSchema.safeParse(req.params);
       const parsed = quoteConvertSchema.safeParse(req.body);
@@ -216,7 +217,7 @@ export function createDashboardQuoteRoutes(prisma: PrismaClient, auditLogger: Au
       });
 
       await auditLogger.log({
-        actor_type: "admin",
+        ...auditActor(req),
         action: "quote.converted_to_job",
         entity_type: "quote",
         entity_id: quote.id,

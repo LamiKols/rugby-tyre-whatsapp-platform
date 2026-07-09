@@ -61,7 +61,7 @@ Core code does not contain tyre-size parsing or tyre catalogue rules. Tyre logic
 - Human handoff triggers and handoff dashboard page
 - Dashboard home, conversations, customers, tyre catalogue, handoffs, and settings placeholder
 - Health endpoint at `GET /health`
-- Admin-password protected dashboard APIs
+- Staff account login and protected dashboard APIs
 - Tests for parser, lookup, routing, retry/handoff behavior, signature rejection, and message logging
 
 ## What Is Live In Phase 2
@@ -87,6 +87,22 @@ Phase 2 reflects the real Rugby Tyre Services operating process instead of treat
 
 The owner remains in control. WhatsApp intake records a request, but it does not fully confirm the job until the owner confirms it.
 
+## What Is Live In Phase 2.1
+
+Phase 2.1 replaces shared staff access with named user accounts:
+
+- Email/password login at `/admin`
+- Bcrypt-hashed passwords
+- Roles: `owner`, `manager`, `staff`, `viewer`
+- Role-aware navigation and read-only UI behavior
+- Owner-only user management at `/dashboard/settings/users`
+- User create/edit, role assignment, activation/deactivation, and temporary password setting
+- API route permissions for jobs, quotes, tyre catalogue, users, customers, settings, and handoffs
+- Audit logs record the acting user where practical
+- Optional `assigned_user_id` link from jobs to staff users while keeping fast free-text `fitter_name`
+
+`ADMIN_PASSWORD` is deprecated and only remains as a temporary fallback. Seed a first owner account with the `SEED_OWNER_*` environment variables instead.
+
 ## Route Structure
 
 - `/`: public customer-facing landing page for Rugby Tyre Services
@@ -100,12 +116,13 @@ The owner remains in control. WhatsApp intake records a request, but it does not
 - `/dashboard/customers`: protected customers page
 - `/dashboard/tyres`: protected tyre catalogue page
 - `/dashboard/handoffs`: protected handoffs page
-- `/dashboard/settings`: protected settings placeholder
+- `/dashboard/settings`: protected owner settings page
+- `/dashboard/settings/users`: protected owner-only user management page
 - `/health`: public health endpoint
 - `/webhooks/twilio/whatsapp`: Twilio WhatsApp webhook endpoint
 - `/api/*`: backend API routes
 
-Unauthenticated staff users who visit dashboard routes see the staff login experience. Dashboard data APIs are protected by the admin session middleware.
+Unauthenticated staff users who visit dashboard routes are redirected to `/admin`. Dashboard data APIs are protected by staff sessions and role checks.
 
 ## What Is Stubbed In Phase 1
 
@@ -142,10 +159,14 @@ Set at minimum:
 ```bash
 DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DATABASE
 SESSION_SECRET=replace-with-at-least-16-characters
-ADMIN_PASSWORD=replace-with-a-real-password
+SEED_OWNER_EMAIL=owner@example.com
+SEED_OWNER_PASSWORD=replace-with-a-strong-temporary-password
+SEED_OWNER_NAME=Rugby Tyre Services Owner
 VITE_PUBLIC_BUSINESS_NAME=Rugby Tyre Services
 VITE_PUBLIC_BUSINESS_LOCATION=Rugby, England
 ```
+
+`ADMIN_PASSWORD` is deprecated. It can be kept temporarily as an emergency fallback while the first owner account is being seeded, but staff should use named email/password accounts.
 
 Add public contact CTAs when the owner confirms them:
 
@@ -166,11 +187,13 @@ Run the database migration:
 npm run db:migrate
 ```
 
-Seed placeholder tyre data:
+Seed the first owner user and placeholder tyre data:
 
 ```bash
 npm run db:seed
 ```
+
+The seed creates the owner user only if `SEED_OWNER_EMAIL` does not already exist. It does not overwrite existing staff users or rotate passwords.
 
 Run tests:
 
@@ -210,24 +233,33 @@ After a production build, the Express app serves the public site and staff route
 /dashboard/tyres
 /dashboard/handoffs
 /dashboard/settings
+/dashboard/settings/users
 ```
 
 ## Environment Variables
 
-Required for Phase 1:
+Required:
 
 ```bash
 DATABASE_URL=
 SESSION_SECRET=
+SEED_OWNER_EMAIL=
+SEED_OWNER_PASSWORD=
+SEED_OWNER_NAME=
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 TWILIO_WHATSAPP_NUMBER=
 TWILIO_WEBHOOK_SECRET=
-ADMIN_PASSWORD=
 VITE_PUBLIC_WHATSAPP_URL=
 VITE_PUBLIC_PHONE_NUMBER=
 VITE_PUBLIC_BUSINESS_NAME=Rugby Tyre Services
 VITE_PUBLIC_BUSINESS_LOCATION=Rugby, England
+```
+
+Deprecated temporary fallback:
+
+```bash
+ADMIN_PASSWORD=
 ```
 
 The `VITE_PUBLIC_*` values are safe for frontend use. Do not expose private Twilio credentials such as `TWILIO_ACCOUNT_SID` or `TWILIO_AUTH_TOKEN` in frontend code.
@@ -280,6 +312,9 @@ Dashboard APIs:
 - `PATCH /api/dashboard/tyres/:id`
 - `GET /api/dashboard/handoffs`
 - `PATCH /api/dashboard/handoffs/:id/resolve`
+- `GET /api/dashboard/users`
+- `POST /api/dashboard/users`
+- `PATCH /api/dashboard/users/:id`
 - `GET /api/dashboard/settings`
 
 Dashboard frontend routes are served under `/dashboard/*` and remain protected by the frontend session check plus protected `/api/dashboard/*` endpoints.
@@ -571,6 +606,27 @@ The digital job log supports the fields from the paper sheet:
 
 Full inventory management is not part of Phase 2.
 
+## Staff Users And Roles
+
+Staff log in at `/admin` with email and password. Passwords are stored as bcrypt hashes. The active roles are:
+
+- `owner`: can manage jobs, job log, quotes, customers, tyre catalogue, settings, users, dashboard/report views, payment status, and supported deactivation controls.
+- `manager`: can manage jobs, job log, quotes, customers, tyre catalogue, dashboard views, and payment status. Cannot manage users or core settings.
+- `staff`: can view the schedule, add manual jobs and completed job log entries, update job status, add fitter notes, view the tyre catalogue, manage operational quotes, and handle handoffs. Cannot manage users, settings, or tyre pricing.
+- `viewer`: can view dashboard, jobs/schedule, job log, and quotes. Cannot create, edit, or delete records.
+
+The dashboard hides navigation items and editing forms based on role. API routes enforce the same permissions server-side.
+
+Owner-only user management lives at `/dashboard/settings/users` and supports:
+
+- Create user
+- Edit name and email
+- Assign role
+- Activate or deactivate user
+- Set or reset a temporary password
+
+Jobs keep fast free-text `fitter_name` for the paper-log workflow. They also support optional `assigned_user_id` for linking work to a staff user where practical. Full rota management is still a future feature.
+
 ## Seed Tyre Catalogue
 
 The seed script creates placeholder Budget, Mid-range, and Premium options for:
@@ -599,8 +655,8 @@ When ready:
 3. Provision PostgreSQL and set `DATABASE_URL`.
 4. Run `npm install`.
 5. Run `npm run db:generate`.
-6. Run `npm run db:migrate` to apply the Phase 2 jobs migration.
-7. Run `npm run db:seed`.
+6. Run `npm run db:migrate` to apply the Phase 2 jobs, paper-process, and staff-user migrations.
+7. Run `npm run db:seed` to create the first owner if `SEED_OWNER_*` variables are set and seed placeholder tyres.
 8. Run `npm run build`.
 9. Start with `npm start`.
 10. Configure the Twilio webhook to the Replit public URL plus `/webhooks/twilio/whatsapp`.
@@ -616,14 +672,16 @@ After deployment:
 ## Security Notes
 
 - No secrets are hardcoded.
-- Dashboard data APIs require an admin session created from `ADMIN_PASSWORD`.
+- Dashboard data APIs require a signed staff session and role-based permission checks.
+- Staff passwords are stored as bcrypt hashes.
+- `ADMIN_PASSWORD` is deprecated and should only be used as a temporary fallback during setup.
 - Session cookies are HTTP-only and signed with `SESSION_SECRET`.
 - Twilio webhook signature verification is implemented.
 - Webhook route has basic rate limiting.
 - Inbound bodies are trimmed and capped before logging.
 - Raw webhook payloads are stored for debugging/audit but are not shown in the dashboard UI.
 - Public frontend code uses only `VITE_PUBLIC_*` contact values and does not expose Twilio secrets.
-- Audit logs are written for handoff events, tyre catalogue changes, job changes, and quote changes.
+- Audit logs are written for handoff events, tyre catalogue changes, job changes, quote changes, payment status changes, and user management actions.
 - Production dependency audit check used: `npm audit --omit=dev --audit-level=critical`.
 
 ## Known Limitations
@@ -641,7 +699,8 @@ After deployment:
 - Scheduling does not yet optimise routes.
 - Media/photo files are logged as metadata only; no image processing or owner preview is built yet.
 - No Stripe, bank transfer automation, maps, AI, reporting, supplier delivery, rota, or accounting features are built.
-- Dashboard auth is intentionally simple for Phase 1 and should evolve before wider staff rollout.
+- User management supports temporary password setting but does not send email reset links yet.
+- Role permissions are intentionally simple and should be revisited before a larger multi-site rollout.
 - A real PostgreSQL database is required for runtime dashboard/webhook persistence.
 
 ## Planned Features / Future Phases

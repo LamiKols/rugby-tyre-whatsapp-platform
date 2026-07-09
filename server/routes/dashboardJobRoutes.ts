@@ -6,6 +6,7 @@ import { canTransitionJobStatus } from "../../core/jobs/jobLifecycle.js";
 import type { JobRecord } from "../../core/jobs/jobRepository.js";
 import { jobPatchSchema, jobStatusUpdateSchema, manualJobCreateSchema } from "../../core/jobs/jobSchemas.js";
 import type { JobStatus } from "../../core/jobs/jobTypes.js";
+import { auditActor, requirePermission } from "../../core/security/adminAuth.js";
 import { idParamSchema } from "../../core/validation/common.js";
 import { PrismaJobRepository } from "../repositories/prismaJobRepository.js";
 import { TwilioOutboundMessenger } from "../services/twilioOutboundMessenger.js";
@@ -117,7 +118,7 @@ export function createDashboardJobRoutes(env: AppEnv, prisma: PrismaClient, audi
     }
   });
 
-  router.post("/", async (req, res, next) => {
+  router.post("/", requirePermission("jobs:write"), async (req, res, next) => {
     try {
       const parsed = manualJobCreateSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -133,7 +134,7 @@ export function createDashboardJobRoutes(env: AppEnv, prisma: PrismaClient, audi
       });
 
       await auditLogger.log({
-        actor_type: "admin",
+        ...auditActor(req),
         action: "job.created_manual",
         entity_type: "job",
         entity_id: job.id,
@@ -166,7 +167,7 @@ export function createDashboardJobRoutes(env: AppEnv, prisma: PrismaClient, audi
     }
   });
 
-  router.patch("/:id", async (req, res, next) => {
+  router.patch("/:id", requirePermission("jobs:write"), async (req, res, next) => {
     try {
       const params = idParamSchema.safeParse(req.params);
       const parsed = jobPatchSchema.safeParse(req.body);
@@ -201,7 +202,7 @@ export function createDashboardJobRoutes(env: AppEnv, prisma: PrismaClient, audi
       });
 
       await auditLogger.log({
-        actor_type: "admin",
+        ...auditActor(req),
         action: "job.updated",
         entity_type: "job",
         entity_id: job.id,
@@ -214,7 +215,7 @@ export function createDashboardJobRoutes(env: AppEnv, prisma: PrismaClient, audi
     }
   });
 
-  router.patch("/:id/status", async (req, res, next) => {
+  router.patch("/:id/status", requirePermission("jobs:write"), async (req, res, next) => {
     try {
       const params = idParamSchema.safeParse(req.params);
       const parsed = jobStatusUpdateSchema.safeParse(req.body);
@@ -256,7 +257,7 @@ export function createDashboardJobRoutes(env: AppEnv, prisma: PrismaClient, audi
       }
 
       await auditLogger.log({
-        actor_type: "admin",
+        ...auditActor(req),
         action: "job.status_updated",
         entity_type: "job",
         entity_id: job.id,
@@ -266,6 +267,20 @@ export function createDashboardJobRoutes(env: AppEnv, prisma: PrismaClient, audi
           to: job.status
         }
       });
+
+      if (parsed.data.payment_status && parsed.data.payment_status !== existing.payment_status) {
+        await auditLogger.log({
+          ...auditActor(req),
+          action: "payment.status_updated",
+          entity_type: "job",
+          entity_id: job.id,
+          metadata: {
+            job_reference: job.job_reference,
+            from: existing.payment_status,
+            to: parsed.data.payment_status
+          }
+        });
+      }
 
       res.json(serializeJob(job));
     } catch (error) {

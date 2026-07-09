@@ -7,6 +7,7 @@ interface LoginPageProps {
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,11 +20,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     try {
       await api("/api/auth/login", {
         method: "POST",
-        body: JSON.stringify({ password })
+        body: JSON.stringify({ email, password })
       });
       onLogin();
     } catch {
-      setError("That password did not work.");
+      setError("Those login details did not work.");
     } finally {
       setLoading(false);
     }
@@ -37,19 +38,31 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         </div>
         <p className="text-sm font-semibold text-whatsapp-700">Rugby Tyre Services</p>
         <h1 className="mt-1 text-2xl font-bold">Rugby Tyre Services Staff Login</h1>
-        <p className="mt-2 text-sm text-slate-600">Access the WhatsApp operations dashboard.</p>
-        <label className="mt-6 block text-sm font-semibold text-charcoal" htmlFor="password">
-          Admin password
+        <p className="mt-2 text-sm text-slate-600">Access the WhatsApp operations dashboard with your staff account.</p>
+        <label className="mt-6 block text-sm font-semibold text-charcoal" htmlFor="email">
+          Email
+        </label>
+        <input
+          id="email"
+          className="field mt-2"
+          type="email"
+          autoComplete="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+        />
+        <label className="mt-4 block text-sm font-semibold text-charcoal" htmlFor="password">
+          Password
         </label>
         <input
           id="password"
           className="field mt-2"
           type="password"
+          autoComplete="current-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
         {error ? <p className="mt-3 text-sm font-semibold text-red-600">{error}</p> : null}
-        <button className="button-primary mt-5 w-full" disabled={loading || !password}>
+        <button className="button-primary mt-5 w-full" disabled={loading || !email || !password}>
           {loading ? "Checking..." : "Sign in"}
         </button>
         <a className="mt-5 inline-flex items-center text-sm font-semibold text-slate-600 transition hover:text-whatsapp-700" href="/">

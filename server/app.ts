@@ -31,7 +31,7 @@ export function createApp(options: CreateAppOptions) {
     res.json(getHealth(options.env.DATABASE_URL));
   });
 
-  app.use("/api/auth", createAuthRoutes(options.env));
+  app.use("/api/auth", createAuthRoutes(options.env, prisma));
   app.use("/api/dashboard", createDashboardRoutes(options.env, prisma));
   app.use("/webhooks/twilio", createTwilioWebhookRoutes(options.env, prisma));
 

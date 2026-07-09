@@ -3,6 +3,7 @@ import { CheckCircle2, ClipboardCheck, Plus } from "lucide-react";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { api, formatCurrency, formatDate } from "../lib/api";
+import { canWriteQuotes, type SessionUser } from "../lib/auth";
 import type { Job } from "../lib/jobs";
 
 interface Quote {
@@ -59,12 +60,17 @@ function compact(value: string) {
   return value.replaceAll("_", " ");
 }
 
-export function QuotesPage() {
+interface QuotesPageProps {
+  currentUser: SessionUser;
+}
+
+export function QuotesPage({ currentUser }: QuotesPageProps) {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [selected, setSelected] = useState<Quote | null>(null);
   const [form, setForm] = useState(quoteFormDefaults);
   const [convertForm, setConvertForm] = useState(convertDefaults);
   const [saving, setSaving] = useState(false);
+  const canManageQuotes = canWriteQuotes(currentUser);
 
   function loadQuotes() {
     api<Quote[]>("/api/dashboard/quotes")
@@ -182,6 +188,7 @@ export function QuotesPage() {
         </section>
 
         <aside className="space-y-5">
+          {canManageQuotes ? (
           <form className="panel p-5" onSubmit={saveQuote}>
             <div className="flex items-center gap-2">
               <Plus className="h-5 w-5 text-whatsapp-600" />
@@ -216,6 +223,7 @@ export function QuotesPage() {
               </button>
             </div>
           </form>
+          ) : null}
 
           <section className="panel p-5">
             {selected ? (
@@ -246,20 +254,22 @@ export function QuotesPage() {
                   </div>
                 </dl>
 
-                <div className="mt-5 grid grid-cols-2 gap-2">
-                  {["price_checked", "quoted", "accepted", "declined", "expired"].map((status) => (
-                    <button className="button-secondary px-3 py-2" key={status} onClick={() => updateQuoteStatus(status)}>
-                      {compact(status)}
-                    </button>
-                  ))}
-                </div>
+                {canManageQuotes ? (
+                  <div className="mt-5 grid grid-cols-2 gap-2">
+                    {["price_checked", "quoted", "accepted", "declined", "expired"].map((status) => (
+                      <button className="button-secondary px-3 py-2" key={status} onClick={() => updateQuoteStatus(status)}>
+                        {compact(status)}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
 
                 {selected.converted_job_id ? (
                   <a className="button-primary mt-5 w-full" href={`/dashboard/jobs/${selected.converted_job_id}`}>
                     <CheckCircle2 className="mr-2 h-4 w-4" />
                     Open converted job
                   </a>
-                ) : (
+                ) : canManageQuotes ? (
                   <form className="mt-5 grid gap-3 border-t border-slate-200 pt-5" onSubmit={convertQuote}>
                     <h4 className="font-bold">Convert accepted quote</h4>
                     <select className="field" value={convertForm.target} onChange={(event) => updateConvertForm("target", event.target.value)}>
@@ -303,7 +313,7 @@ export function QuotesPage() {
                       {saving ? "Converting..." : "Convert to job"}
                     </button>
                   </form>
-                )}
+                ) : null}
               </>
             ) : (
               <p className="text-sm text-slate-600">Select a quote to update or convert it.</p>

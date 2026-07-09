@@ -13,6 +13,9 @@ const envSchema = z.object({
   TWILIO_WHATSAPP_NUMBER: z.string().optional(),
   TWILIO_WEBHOOK_SECRET: z.string().optional(),
   ADMIN_PASSWORD: z.string().optional(),
+  SEED_OWNER_EMAIL: z.string().optional(),
+  SEED_OWNER_PASSWORD: z.string().optional(),
+  SEED_OWNER_NAME: z.string().optional(),
   BUSINESS_ADDRESS: z.string().optional()
 });
 
@@ -27,4 +30,3 @@ export function getEnv(): AppEnv {
 
   return parsed.data;
 }
-

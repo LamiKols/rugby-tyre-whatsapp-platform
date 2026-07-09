@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Layout } from "./components/Layout";
 import { api } from "./lib/api";
+import type { SessionResponse, SessionUser } from "./lib/auth";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardHome } from "./pages/DashboardHome";
 import { ConversationsPage } from "./pages/ConversationsPage";
@@ -12,23 +13,26 @@ import { PublicLandingPage } from "./pages/PublicLandingPage";
 import { JobsSchedulePage } from "./pages/JobsSchedulePage";
 import { JobLogPage } from "./pages/JobLogPage";
 import { QuotesPage } from "./pages/QuotesPage";
+import { UserManagementPage } from "./pages/UserManagementPage";
 
-function route() {
+function route(user: SessionUser) {
   if (window.location.pathname.startsWith("/dashboard/jobs")) {
-    return <JobsSchedulePage />;
+    return <JobsSchedulePage currentUser={user} />;
   }
 
   switch (window.location.pathname) {
+    case "/dashboard/settings/users":
+      return <UserManagementPage currentUser={user} />;
     case "/dashboard/job-log":
-      return <JobLogPage />;
+      return <JobLogPage currentUser={user} />;
     case "/dashboard/quotes":
-      return <QuotesPage />;
+      return <QuotesPage currentUser={user} />;
     case "/dashboard/conversations":
       return <ConversationsPage />;
     case "/dashboard/customers":
       return <CustomersPage />;
     case "/dashboard/tyres":
-      return <TyreCataloguePage />;
+      return <TyreCataloguePage currentUser={user} />;
     case "/dashboard/handoffs":
       return <HandoffsPage />;
     case "/dashboard/settings":
@@ -41,32 +45,33 @@ function route() {
 export function App() {
   const currentPath = window.location.pathname;
   const isPublicHome = currentPath === "/";
-  const [authenticated, setAuthenticated] = useState<boolean | null>(isPublicHome ? false : null);
+  const [session, setSession] = useState<SessionResponse | null>(isPublicHome ? { authenticated: false, user: null } : null);
 
   useEffect(() => {
     if (isPublicHome) {
       return;
     }
 
-    api<{ authenticated: boolean }>("/api/auth/session")
-      .then((session) => setAuthenticated(session.authenticated))
-      .catch(() => setAuthenticated(false));
+    api<SessionResponse>("/api/auth/session")
+      .then(setSession)
+      .catch(() => setSession({ authenticated: false, user: null }));
   }, [isPublicHome]);
 
   async function logout() {
     await api("/api/auth/logout", { method: "POST" });
-    setAuthenticated(false);
+    setSession({ authenticated: false, user: null });
+    window.location.assign("/admin");
   }
 
   if (isPublicHome) {
     return <PublicLandingPage />;
   }
 
-  if (authenticated === null) {
+  if (session === null) {
     return <div className="grid min-h-screen place-items-center text-sm font-semibold text-slate-600">Loading staff area...</div>;
   }
 
-  if (currentPath === "/admin" && authenticated) {
+  if (currentPath === "/admin" && session.authenticated) {
     return (
       <main className="grid min-h-screen place-items-center bg-slate-50 px-4">
         <section className="panel w-full max-w-md p-6">
@@ -89,9 +94,14 @@ export function App() {
     );
   }
 
-  if (!authenticated) {
+  if (!session.authenticated || !session.user) {
+    if (currentPath.startsWith("/dashboard")) {
+      window.location.assign("/admin");
+      return <div className="grid min-h-screen place-items-center text-sm font-semibold text-slate-600">Redirecting to staff login...</div>;
+    }
+
     return <LoginPage onLogin={() => window.location.assign("/dashboard")} />;
   }
 
-  return <Layout onLogout={logout}>{route()}</Layout>;
+  return <Layout user={session.user} onLogout={logout}>{route(session.user)}</Layout>;
 }
