@@ -9,6 +9,7 @@ import { normalizeTyreSize, parseTyreSize } from "../../modules/tyres/tyreSize.j
 import { PrismaAuditLogger } from "../repositories/prismaAuditLogger.js";
 import { PrismaTyreCatalogueRepository } from "../repositories/prismaTyreCatalogueRepository.js";
 import { createDashboardJobRoutes } from "./dashboardJobRoutes.js";
+import { createDashboardQuoteRoutes } from "./dashboardQuoteRoutes.js";
 
 const tyreInputSchema = z.object({
   size: z.string().min(1),
@@ -50,6 +51,7 @@ export function createDashboardRoutes(env: AppEnv, prisma: PrismaClient) {
 
   router.use(requireAdmin);
   router.use("/jobs", createDashboardJobRoutes(env, prisma, auditLogger));
+  router.use("/quotes", createDashboardQuoteRoutes(prisma, auditLogger));
 
   router.get("/summary", async (_req, res, next) => {
     try {
@@ -97,7 +99,14 @@ export function createDashboardRoutes(env: AppEnv, prisma: PrismaClient) {
             }),
             prisma.job.count({ where: { status: "reschedule_requested" } }),
             prisma.job.count({ where: { status: "cancellation_requested" } }),
-            prisma.job.count({ where: { payment_status: "payment_pending" } })
+            prisma.job.count({
+              where: {
+                OR: [
+                  { status: "payment_pending" },
+                  { payment_status: { in: ["pending", "part_paid"] } }
+                ]
+              }
+            })
           ])
         ]);
 

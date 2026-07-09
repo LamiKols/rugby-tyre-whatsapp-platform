@@ -1,15 +1,28 @@
-import type { JobSource, JobStatus, JobType, PaymentStatus, Urgency } from "./jobTypes.js";
+import type {
+  JobSource,
+  JobStatus,
+  JobType,
+  PaymentMethod,
+  PaymentStatus,
+  StockOrderStatus,
+  Urgency
+} from "./jobTypes.js";
 
 export interface JobRecord {
   id: string;
   job_reference: string;
   customer_id: string;
   conversation_id?: string | null;
+  assigned_user_id?: string | null;
   customer_name?: string | null;
   customer_phone?: string | null;
   vehicle_registration?: string | null;
   tyre_size?: string | null;
+  tyre_description?: string | null;
   tyre_brand?: string | null;
+  stock_order_status: string;
+  quantity: number;
+  fitter_name?: string | null;
   job_type: string;
   source: string;
   status: string;
@@ -24,8 +37,11 @@ export interface JobRecord {
   scheduled_start?: Date | null;
   scheduled_end?: Date | null;
   urgency: string;
+  cost?: number | null;
   price_estimate?: number | null;
+  payment_method?: string | null;
   payment_status?: string | null;
+  notes?: string | null;
   internal_notes?: string | null;
   customer_notes?: string | null;
   cancellation_reason?: string | null;
@@ -40,13 +56,18 @@ export interface CreateJobInput {
   customer_name?: string;
   phone?: string;
   conversation_id?: string;
+  assigned_user_id?: string;
   vehicle_registration?: string;
   tyre_size?: string;
+  tyre_description?: string;
   tyre_brand?: string;
+  stock_order_status?: StockOrderStatus;
+  quantity?: number;
+  fitter_name?: string;
   job_type: JobType;
   source: JobSource;
   status: JobStatus;
-  service_required: string;
+  service_required?: string;
   issue_description?: string;
   address_text?: string;
   location_lat?: number;
@@ -56,9 +77,13 @@ export interface CreateJobInput {
   preferred_time_text?: string;
   scheduled_start?: Date | null;
   scheduled_end?: Date | null;
+  completed_at?: Date | null;
   urgency: Urgency;
+  cost?: number | null;
   price_estimate?: number | null;
+  payment_method?: PaymentMethod;
   payment_status?: PaymentStatus;
+  notes?: string;
   internal_notes?: string;
   customer_notes?: string;
 }
@@ -73,4 +98,3 @@ export interface JobIntakeRepository {
   ): Promise<JobRecord>;
   updateCustomerName(customerId: string, name: string): Promise<void>;
 }
-

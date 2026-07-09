@@ -128,6 +128,7 @@ export function createDashboardJobRoutes(env: AppEnv, prisma: PrismaClient, audi
       const job = await jobRepository.createJob({
         ...parsed.data,
         preferred_date: parseOptionalDate(parsed.data.preferred_date) ?? null,
+        completed_at: parseOptionalDate(parsed.data.completed_at) ?? null,
         payment_status: parsed.data.payment_status
       });
 
@@ -194,6 +195,7 @@ export function createDashboardJobRoutes(env: AppEnv, prisma: PrismaClient, audi
       const job = await jobRepository.updateJob(params.data.id, {
         ...parsed.data,
         preferred_date: parseOptionalDate(parsed.data.preferred_date),
+        completed_at: parseOptionalDate(parsed.data.completed_at),
         customer_name: undefined,
         phone: undefined
       });
@@ -234,6 +236,7 @@ export function createDashboardJobRoutes(env: AppEnv, prisma: PrismaClient, audi
 
       const job = await jobRepository.updateJobStatus(params.data.id, parsed.data.status, {
         payment_status: parsed.data.payment_status,
+        payment_method: parsed.data.payment_method,
         preferred_date: parseOptionalDate(parsed.data.preferred_date),
         preferred_time_text: parsed.data.preferred_time_text,
         scheduled_start: parseOptionalDate(parsed.data.scheduled_start),
@@ -272,4 +275,3 @@ export function createDashboardJobRoutes(env: AppEnv, prisma: PrismaClient, audi
 
   return router;
 }
-

@@ -125,6 +125,7 @@ model Job {
   job_reference        String    @unique
   customer_id          String
   conversation_id      String?
+  assigned_user_id     String?
   vehicle_registration String?
   job_type             String
   source               String
@@ -142,9 +143,15 @@ model Job {
   preferred_time_text  String?
   urgency              String    @default("unknown")
   tyre_size            String?
+  tyre_description     String?
   tyre_brand           String?
+  stock_order_status   String    @default("unknown")
+  quantity             Int       @default(1)
+  fitter_name          String?
   price                Decimal?  @db.Decimal(10, 2)
   price_estimate       Decimal?  @db.Decimal(10, 2)
+  cost                 Decimal?  @db.Decimal(10, 2)
+  payment_method       String?   @default("not_paid")
   payment_status       String?   @default("pending")
   notes                String?
   internal_notes       String?
@@ -155,11 +162,37 @@ model Job {
   updated_at           DateTime  @updatedAt
   customer             Customer  @relation(fields: [customer_id], references: [id])
   conversation         Conversation? @relation(fields: [conversation_id], references: [id])
+  converted_quotes     Quote[]
 
   @@index([customer_id])
   @@index([conversation_id])
   @@index([status])
   @@index([source])
   @@index([urgency])
+  @@index([stock_order_status])
   @@map("jobs")
+}
+
+model Quote {
+  id                   String    @id @default(cuid())
+  quote_reference      String    @unique
+  customer_name        String?
+  phone                String?
+  vehicle_registration String?
+  tyre_size            String?
+  tyre_description     String
+  supplier_checked     String?
+  supplier_price       Decimal?  @db.Decimal(10, 2)
+  quoted_price         Decimal?  @db.Decimal(10, 2)
+  status               String    @default("draft")
+  notes                String?
+  converted_job_id     String?
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
+  converted_job        Job?      @relation(fields: [converted_job_id], references: [id])
+
+  @@index([status])
+  @@index([phone])
+  @@index([converted_job_id])
+  @@map("quotes")
 }

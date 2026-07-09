@@ -17,6 +17,7 @@ export type JobType = (typeof jobTypes)[number];
 export const jobStatuses = [
   "new_request",
   "awaiting_owner_confirmation",
+  "booked",
   "confirmed",
   "scheduled",
   "reschedule_requested",
@@ -34,18 +35,35 @@ export const jobStatuses = [
 ] as const;
 export type JobStatus = (typeof jobStatuses)[number];
 
-export const manualStartStatuses = ["confirmed", "scheduled", "completed"] as const;
+export const manualStartStatuses = ["new_request", "booked", "confirmed", "scheduled", "completed"] as const;
 export type ManualStartStatus = (typeof manualStartStatuses)[number];
 
 export const paymentStatuses = [
   "not_required",
   "pending",
-  "payment_pending",
   "paid",
   "part_paid",
-  "failed"
+  "failed",
+  "refunded"
 ] as const;
 export type PaymentStatus = (typeof paymentStatuses)[number];
+
+export const paymentMethods = ["cash", "card", "bank_transfer", "not_paid", "other"] as const;
+export type PaymentMethod = (typeof paymentMethods)[number];
+
+export const stockOrderStatuses = ["stock", "ordered", "customer_supplied", "not_applicable", "unknown"] as const;
+export type StockOrderStatus = (typeof stockOrderStatuses)[number];
+
+export const quoteStatuses = [
+  "draft",
+  "price_checked",
+  "quoted",
+  "accepted",
+  "declined",
+  "expired",
+  "converted_to_job"
+] as const;
+export type QuoteStatus = (typeof quoteStatuses)[number];
 
 export const urgencyValues = ["emergency", "today", "tomorrow", "flexible", "unknown"] as const;
 export type Urgency = (typeof urgencyValues)[number];
@@ -53,6 +71,7 @@ export type Urgency = (typeof urgencyValues)[number];
 export const activeJobStatuses: JobStatus[] = [
   "new_request",
   "awaiting_owner_confirmation",
+  "booked",
   "confirmed",
   "scheduled",
   "reschedule_requested",
@@ -76,3 +95,6 @@ export function isPaymentStatus(value: string): value is PaymentStatus {
   return paymentStatuses.includes(value as PaymentStatus);
 }
 
+export function isPaymentMethod(value: string): value is PaymentMethod {
+  return paymentMethods.includes(value as PaymentMethod);
+}

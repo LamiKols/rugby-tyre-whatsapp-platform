@@ -1,8 +1,9 @@
 import { type JobStatus, jobStatuses } from "./jobTypes.js";
 
 const allowedTransitions: Record<JobStatus, JobStatus[]> = {
-  new_request: ["awaiting_owner_confirmation", "confirmed", "scheduled", "cancelled"],
+  new_request: ["awaiting_owner_confirmation", "booked", "confirmed", "scheduled", "cancelled"],
   awaiting_owner_confirmation: [
+    "booked",
     "confirmed",
     "scheduled",
     "reschedule_requested",
@@ -10,7 +11,21 @@ const allowedTransitions: Record<JobStatus, JobStatus[]> = {
     "cancelled",
     "unable_to_complete"
   ],
+  booked: [
+    "confirmed",
+    "scheduled",
+    "reschedule_requested",
+    "cancellation_requested",
+    "arrived",
+    "in_progress",
+    "completed",
+    "payment_pending",
+    "paid",
+    "cancelled",
+    "no_show"
+  ],
   confirmed: [
+    "booked",
     "scheduled",
     "reschedule_requested",
     "cancellation_requested",

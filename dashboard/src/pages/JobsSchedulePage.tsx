@@ -3,61 +3,49 @@ import { CalendarDays, CheckCircle2, Clock3, CreditCard, MapPin, Plus, Siren, Wr
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { api, formatCurrency, formatDate } from "../lib/api";
-
-interface Job {
-  id: string;
-  job_reference: string;
-  customer_name: string | null;
-  customer_phone: string | null;
-  vehicle_registration: string | null;
-  tyre_size: string | null;
-  tyre_brand: string | null;
-  job_type: string;
-  source: string;
-  status: string;
-  service_required: string | null;
-  issue_description: string | null;
-  address_text: string | null;
-  location_lat: number | null;
-  location_lng: number | null;
-  location_source: string | null;
-  preferred_date: string | null;
-  preferred_time_text: string | null;
-  scheduled_start: string | null;
-  scheduled_end: string | null;
-  urgency: string;
-  price_estimate: number | null;
-  payment_status: string | null;
-  internal_notes: string | null;
-  customer_notes: string | null;
-  cancellation_reason: string | null;
-  reschedule_requested_text: string | null;
-  completed_at: string | null;
-  updated_at: string;
-}
+import {
+  closedStatuses,
+  compactStatus,
+  completedStatuses,
+  type Job,
+  paymentMethodLabel,
+  sourceLabel,
+  statusTone,
+  stockOrderLabel,
+  tyreDescription,
+  urgencyTone
+} from "../lib/jobs";
 
 const emptyForm = {
   customer_name: "",
   phone: "",
   vehicle_registration: "",
   tyre_size: "",
+  tyre_description: "",
   tyre_brand: "",
-  job_type: "mobile",
+  stock_order_status: "unknown",
+  quantity: "1",
+  fitter_name: "",
+  job_type: "in_shop",
   source: "manual",
-  status: "confirmed",
+  status: "booked",
   service_required: "",
   issue_description: "",
   address_text: "",
   preferred_date: "",
   preferred_time_text: "",
+  completed_at: "",
   urgency: "unknown",
+  cost: "",
   price_estimate: "",
+  payment_method: "not_paid",
   internal_notes: "",
   customer_notes: "",
   payment_status: "pending"
 };
 
 const statusActions = [
+  ["booked", "Booked"],
   ["confirmed", "Confirm"],
   ["scheduled", "Schedule"],
   ["en_route", "En route"],
@@ -69,38 +57,6 @@ const statusActions = [
   ["cancelled", "Cancel"],
   ["no_show", "No-show"]
 ] as const;
-
-function sourceLabel(source: string) {
-  return (
-    {
-      manual: "Manual",
-      walk_in: "Walk-in",
-      whatsapp: "WhatsApp",
-      phone: "Phone",
-      future_phone_ai: "Future Phone AI"
-    }[source] ?? source
-  );
-}
-
-function statusTone(status: string): "green" | "amber" | "red" | "slate" {
-  if (["cancelled", "unable_to_complete", "no_show", "cancellation_requested"].includes(status)) {
-    return "red";
-  }
-  if (["awaiting_owner_confirmation", "reschedule_requested", "payment_pending"].includes(status)) {
-    return "amber";
-  }
-  if (["confirmed", "scheduled", "completed", "paid"].includes(status)) {
-    return "green";
-  }
-  return "slate";
-}
-
-function urgencyTone(urgency: string): "green" | "amber" | "red" | "slate" {
-  if (urgency === "emergency") return "red";
-  if (urgency === "today") return "amber";
-  if (urgency === "tomorrow" || urgency === "flexible") return "green";
-  return "slate";
-}
 
 function jobDate(job: Job) {
   return job.scheduled_start || job.preferred_date;
@@ -123,17 +79,17 @@ function inThisWeek(value: string | null) {
   return date > now && date <= weekEnd;
 }
 
-function compactStatus(status: string) {
-  return status.replaceAll("_", " ");
-}
-
 function jobToForm(job: Job) {
   return {
     customer_name: job.customer_name ?? "",
     phone: job.customer_phone?.startsWith("manual:") ? "" : job.customer_phone ?? "",
     vehicle_registration: job.vehicle_registration ?? "",
     tyre_size: job.tyre_size ?? "",
+    tyre_description: job.tyre_description ?? "",
     tyre_brand: job.tyre_brand ?? "",
+    stock_order_status: job.stock_order_status ?? "unknown",
+    quantity: job.quantity?.toString() ?? "1",
+    fitter_name: job.fitter_name ?? "",
     job_type: job.job_type,
     source: job.source,
     status: job.status,
@@ -142,8 +98,11 @@ function jobToForm(job: Job) {
     address_text: job.address_text ?? "",
     preferred_date: job.preferred_date ? job.preferred_date.slice(0, 10) : "",
     preferred_time_text: job.preferred_time_text ?? "",
+    completed_at: job.completed_at ? job.completed_at.slice(0, 10) : "",
     urgency: job.urgency,
+    cost: job.cost?.toString() ?? "",
     price_estimate: job.price_estimate?.toString() ?? "",
+    payment_method: job.payment_method ?? "not_paid",
     internal_notes: job.internal_notes ?? "",
     customer_notes: job.customer_notes ?? "",
     payment_status: job.payment_status ?? "pending"
@@ -186,22 +145,27 @@ export function JobsSchedulePage() {
       {
         title: "Today",
         icon: CalendarDays,
-        jobs: jobs.filter((job) => isSameDay(jobDate(job), 0) && !["completed", "cancelled", "paid"].includes(job.status))
+        jobs: jobs.filter((job) => isSameDay(jobDate(job), 0) && !closedStatuses.includes(job.status))
       },
       {
         title: "Tomorrow",
         icon: Clock3,
-        jobs: jobs.filter((job) => isSameDay(jobDate(job), 1) && !["completed", "cancelled", "paid"].includes(job.status))
+        jobs: jobs.filter((job) => isSameDay(jobDate(job), 1) && !closedStatuses.includes(job.status))
       },
       {
         title: "This week",
         icon: CalendarDays,
-        jobs: jobs.filter((job) => inThisWeek(jobDate(job)) && !["completed", "cancelled", "paid"].includes(job.status))
+        jobs: jobs.filter((job) => inThisWeek(jobDate(job)) && !closedStatuses.includes(job.status))
+      },
+      {
+        title: "Unscheduled",
+        icon: Clock3,
+        jobs: jobs.filter((job) => !jobDate(job) && !closedStatuses.includes(job.status))
       },
       {
         title: "Completed",
         icon: CheckCircle2,
-        jobs: jobs.filter((job) => ["completed", "payment_pending", "paid"].includes(job.status))
+        jobs: jobs.filter((job) => completedStatuses.includes(job.status))
       },
       {
         title: "Cancelled",
@@ -222,6 +186,8 @@ export function JobsSchedulePage() {
     try {
       const payload = {
         ...form,
+        quantity: Number(form.quantity || 1),
+        cost: form.cost ? Number(form.cost) : undefined,
         price_estimate: form.price_estimate ? Number(form.price_estimate) : undefined
       };
       const job = await api<Job>(editingJobId ? `/api/dashboard/jobs/${editingJobId}` : "/api/dashboard/jobs", {
@@ -240,7 +206,7 @@ export function JobsSchedulePage() {
   async function updateStatus(status: string) {
     if (!selected) return;
     const payload: Record<string, string> = { status };
-    if (status === "payment_pending") payload.payment_status = "payment_pending";
+    if (status === "payment_pending") payload.payment_status = "pending";
     if (status === "paid") payload.payment_status = "paid";
     const job = await api<Job>(`/api/dashboard/jobs/${selected.id}/status`, {
       method: "PATCH",
@@ -256,16 +222,60 @@ export function JobsSchedulePage() {
     setForm(jobToForm(selected));
   }
 
+  function startAppointment() {
+    setEditingJobId(null);
+    setForm({
+      ...emptyForm,
+      job_type: "in_shop",
+      source: "manual",
+      status: "booked",
+      service_required: "In-shop appointment"
+    });
+  }
+
+  function startMobileRequest() {
+    setEditingJobId(null);
+    setForm({
+      ...emptyForm,
+      job_type: "mobile",
+      source: "manual",
+      status: "new_request",
+      service_required: "Mobile tyre service"
+    });
+  }
+
+  function startCompletedJob() {
+    setEditingJobId(null);
+    setForm({
+      ...emptyForm,
+      job_type: "walk_in",
+      source: "walk_in",
+      status: "completed",
+      completed_at: new Date().toISOString().slice(0, 10),
+      service_required: "Completed tyre service"
+    });
+  }
+
   return (
     <>
       <PageHeader
         title="Jobs / Schedule"
-        eyebrow="Job control centre"
+        eyebrow="Appointment diary"
         actions={
-          <button className="button-secondary" onClick={() => { setEditingJobId(null); setForm(emptyForm); }}>
-            <Plus className="mr-2 h-4 w-4" />
-            New manual job
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button className="button-primary" onClick={startAppointment}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Appointment
+            </button>
+            <button className="button-secondary" onClick={startMobileRequest}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Mobile Job Request
+            </button>
+            <button className="button-secondary" onClick={startCompletedJob}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Completed Job
+            </button>
+          </div>
         }
       />
 
@@ -296,7 +306,7 @@ export function JobsSchedulePage() {
                         <StatusBadge tone={statusTone(job.status)}>{compactStatus(job.status)}</StatusBadge>
                       </div>
                       <p className="mt-2 font-semibold">{job.customer_name ?? job.customer_phone ?? "Customer not named"}</p>
-                      <p className="text-sm text-slate-600">{job.service_required ?? "Service not recorded"}</p>
+                      <p className="text-sm text-slate-600">{tyreDescription(job)}</p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         <StatusBadge tone="slate">{sourceLabel(job.source)}</StatusBadge>
                         <StatusBadge tone={urgencyTone(job.urgency)}>{job.urgency}</StatusBadge>
@@ -312,7 +322,7 @@ export function JobsSchedulePage() {
 
         <aside className="space-y-5">
           <section className="panel p-5">
-            <h3 className="text-lg font-bold">{editingJobId ? "Edit job" : "Quick add job"}</h3>
+            <h3 className="text-lg font-bold">{editingJobId ? "Edit job" : "Quick add"}</h3>
             <form className="mt-4 grid gap-3" onSubmit={saveJob}>
               <div className="grid gap-3 sm:grid-cols-2">
                 <input className="field" placeholder="Customer name" value={form.customer_name} onChange={(event) => updateForm("customer_name", event.target.value)} />
@@ -334,17 +344,38 @@ export function JobsSchedulePage() {
                   {editingJobId ? <option value="whatsapp">WhatsApp</option> : null}
                 </select>
               </div>
-              <input className="field" placeholder="Service required" value={form.service_required} onChange={(event) => updateForm("service_required", event.target.value)} />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <select className="field" value={form.status} onChange={(event) => updateForm("status", event.target.value)}>
+                  <option value="new_request">New request</option>
+                  <option value="booked">Booked</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="scheduled">Scheduled</option>
+                  <option value="completed">Completed</option>
+                </select>
+                <select className="field" value={form.stock_order_status} onChange={(event) => updateForm("stock_order_status", event.target.value)}>
+                  <option value="unknown">Stock / order unknown</option>
+                  <option value="stock">Stock</option>
+                  <option value="ordered">Ordered</option>
+                  <option value="customer_supplied">Customer supplied</option>
+                  <option value="not_applicable">Not applicable</option>
+                </select>
+              </div>
+              <input className="field" placeholder="Type / service required" value={form.service_required} onChange={(event) => updateForm("service_required", event.target.value)} />
               <div className="grid gap-3 sm:grid-cols-2">
                 <input className="field" placeholder="Vehicle reg" value={form.vehicle_registration} onChange={(event) => updateForm("vehicle_registration", event.target.value.toUpperCase())} />
                 <input className="field" placeholder="Tyre size" value={form.tyre_size} onChange={(event) => updateForm("tyre_size", event.target.value)} />
               </div>
+              <input className="field" placeholder="Tyre description, e.g. 205/55/R16 Budget or puncture repair" value={form.tyre_description} onChange={(event) => updateForm("tyre_description", event.target.value)} />
               <input className="field" placeholder="Tyre brand/category" value={form.tyre_brand} onChange={(event) => updateForm("tyre_brand", event.target.value)} />
               <textarea className="field min-h-20" placeholder="Issue description" value={form.issue_description} onChange={(event) => updateForm("issue_description", event.target.value)} />
               <input className="field" placeholder="Address or location" value={form.address_text} onChange={(event) => updateForm("address_text", event.target.value)} />
               <div className="grid gap-3 sm:grid-cols-2">
-                <input className="field" type="date" value={form.preferred_date} onChange={(event) => updateForm("preferred_date", event.target.value)} />
-                <input className="field" placeholder="Preferred time" value={form.preferred_time_text} onChange={(event) => updateForm("preferred_time_text", event.target.value)} />
+                <input className="field" aria-label="Appointment date" type="date" value={form.preferred_date} onChange={(event) => updateForm("preferred_date", event.target.value)} />
+                <input className="field" placeholder="Appointment time" value={form.preferred_time_text} onChange={(event) => updateForm("preferred_time_text", event.target.value)} />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input className="field" aria-label="Completed date" type="date" value={form.completed_at} onChange={(event) => updateForm("completed_at", event.target.value)} />
+                <input className="field" placeholder="Fitter" value={form.fitter_name} onChange={(event) => updateForm("fitter_name", event.target.value)} />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <select className="field" value={form.urgency} onChange={(event) => updateForm("urgency", event.target.value)}>
@@ -354,25 +385,32 @@ export function JobsSchedulePage() {
                   <option value="tomorrow">Tomorrow</option>
                   <option value="flexible">Flexible</option>
                 </select>
-                <select className="field" value={form.status} onChange={(event) => updateForm("status", event.target.value)}>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="scheduled">Scheduled</option>
-                  <option value="completed">Completed</option>
-                </select>
+                <input className="field" type="number" min="1" placeholder="Quantity" value={form.quantity} onChange={(event) => updateForm("quantity", event.target.value)} />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <input className="field" type="number" placeholder="Price estimate" value={form.price_estimate} onChange={(event) => updateForm("price_estimate", event.target.value)} />
+                <input className="field" type="number" min="0" step="0.01" placeholder="Cost" value={form.cost} onChange={(event) => updateForm("cost", event.target.value)} />
+                <input className="field" type="number" min="0" step="0.01" placeholder="Price estimate" value={form.price_estimate} onChange={(event) => updateForm("price_estimate", event.target.value)} />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <select className="field" value={form.payment_method} onChange={(event) => updateForm("payment_method", event.target.value)}>
+                  <option value="not_paid">Not paid</option>
+                  <option value="cash">Cash</option>
+                  <option value="card">Card</option>
+                  <option value="bank_transfer">Bank transfer</option>
+                  <option value="other">Other</option>
+                </select>
                 <select className="field" value={form.payment_status} onChange={(event) => updateForm("payment_status", event.target.value)}>
                   <option value="pending">Pending</option>
                   <option value="not_required">Not required</option>
-                  <option value="payment_pending">Payment pending</option>
                   <option value="paid">Paid</option>
                   <option value="part_paid">Part paid</option>
                   <option value="failed">Failed</option>
+                  <option value="refunded">Refunded</option>
                 </select>
               </div>
+              <textarea className="field min-h-16" placeholder="Customer notes" value={form.customer_notes} onChange={(event) => updateForm("customer_notes", event.target.value)} />
               <textarea className="field min-h-20" placeholder="Internal notes" value={form.internal_notes} onChange={(event) => updateForm("internal_notes", event.target.value)} />
-              <button className="button-primary w-full" disabled={saving || !form.service_required || (!form.phone && !form.customer_name)}>
+              <button className="button-primary w-full" disabled={saving || (!form.service_required && !form.tyre_description)}>
                 {saving ? "Saving..." : editingJobId ? "Save job" : "Create job"}
               </button>
             </form>
@@ -395,11 +433,15 @@ export function JobsSchedulePage() {
                   </div>
                   <div>
                     <dt className="font-semibold text-slate-500">Vehicle / tyre</dt>
-                    <dd>{selected.vehicle_registration ?? "No reg"} | {selected.tyre_size ?? "No tyre size"}</dd>
+                    <dd>{selected.vehicle_registration ?? "No reg"} | {tyreDescription(selected)}</dd>
                   </div>
                   <div>
                     <dt className="font-semibold text-slate-500">Service</dt>
                     <dd>{selected.service_required ?? "Not recorded"} {selected.issue_description ? `- ${selected.issue_description}` : ""}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-semibold text-slate-500">Stock / fitter</dt>
+                    <dd>{stockOrderLabel(selected.stock_order_status)} | Qty {selected.quantity ?? 1} | {selected.fitter_name ?? "No fitter"}</dd>
                   </div>
                   <div>
                     <dt className="font-semibold text-slate-500">Location</dt>
@@ -420,8 +462,8 @@ export function JobsSchedulePage() {
                     <dt className="font-semibold text-slate-500">Payment</dt>
                     <dd className="flex items-center gap-2">
                       <CreditCard className="h-4 w-4 text-slate-500" />
-                      {selected.payment_status ?? "pending"}
-                      {selected.price_estimate ? ` | ${formatCurrency(selected.price_estimate)}` : ""}
+                      {paymentMethodLabel(selected.payment_method)} | {selected.payment_status ?? "pending"}
+                      {selected.cost ? ` | ${formatCurrency(selected.cost)}` : selected.price_estimate ? ` | ${formatCurrency(selected.price_estimate)}` : ""}
                     </dd>
                   </div>
                   {selected.conversation_id ? (
@@ -458,4 +500,3 @@ export function JobsSchedulePage() {
     </>
   );
 }
-

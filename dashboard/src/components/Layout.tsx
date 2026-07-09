@@ -1,7 +1,9 @@
 import {
   Gauge,
   CalendarDays,
+  ClipboardList,
   MessageCircle,
+  ReceiptText,
   Settings,
   Siren,
   Tags,
@@ -11,6 +13,8 @@ import {
 const navItems = [
   { href: "/dashboard", label: "Dashboard Home", icon: Gauge },
   { href: "/dashboard/jobs", label: "Jobs / Schedule", icon: CalendarDays },
+  { href: "/dashboard/job-log", label: "Job Log", icon: ClipboardList },
+  { href: "/dashboard/quotes", label: "Quotes", icon: ReceiptText },
   { href: "/dashboard/conversations", label: "Conversations", icon: MessageCircle },
   { href: "/dashboard/customers", label: "Customers", icon: Users },
   { href: "/dashboard/tyres", label: "Tyre Catalogue", icon: Tags },

@@ -66,19 +66,24 @@ Core code does not contain tyre-size parsing or tyre catalogue rules. Tyre logic
 
 ## What Is Live In Phase 2
 
-Phase 2 turns the dashboard into a practical job control centre for the owner:
+Phase 2 reflects the real Rugby Tyre Services operating process instead of treating every item as one generic job request. The dashboard now supports three related workflows:
 
-- Manual job capture for phone, walk-in, and direct customer work
-- Protected jobs/schedule board at `/dashboard/jobs`
-- Job detail view with owner status actions
+- Appointment diary replacement at `/dashboard/jobs`
+- Completed job log replacement for the paper RTS sheet at `/dashboard/job-log`
+- Manual quote and supplier price-check notes at `/dashboard/quotes`
+- Fast completed job entry with Date / Type, Tyre Description, Stock / Order, Quantity, Fitter, Cost, and Payment Method
+- Manual appointment capture for the physical handbook workflow
+- Manual mobile job request capture for staff-entered phone or walk-in enquiries
 - WhatsApp mobile job intake flow from menu option `2`
 - Pending WhatsApp jobs created with `status = awaiting_owner_confirmation`
 - Owner-controlled confirmation, cancellation, reschedule, no-show, progress, payment, and completion statuses
 - Cancellation and reschedule intent detection from WhatsApp
 - Basic WhatsApp confirmation/cancellation/reschedule messages after owner action
-- Job source, urgency, payment status, customer, vehicle, tyre, address/location, and notes tracking
+- Separate payment method and payment status fields
+- Stock/order status, fitter, tyre size, tyre description, quantity, cost, customer, vehicle, source, and notes tracking
+- Quote conversion into either a booked appointment or completed job
 - Dashboard home job summary cards for today's jobs, pending WhatsApp requests, emergency jobs, reschedules, cancellations, and payment pending
-- Database migration adding Phase 2 job fields and conversation state data
+- Database migrations adding Phase 2 job, quote, paper-log, and conversation state fields
 
 The owner remains in control. WhatsApp intake records a request, but it does not fully confirm the job until the owner confirms it.
 
@@ -89,6 +94,8 @@ The owner remains in control. WhatsApp intake records a request, but it does not
 - `/dashboard`: protected operations dashboard
 - `/dashboard/jobs`: protected jobs and schedule board
 - `/dashboard/jobs/:id`: protected job detail view
+- `/dashboard/job-log`: protected completed job log replacing the paper RTS sheet
+- `/dashboard/quotes`: protected quote and supplier price-check foundation
 - `/dashboard/conversations`: protected conversations page
 - `/dashboard/customers`: protected customers page
 - `/dashboard/tyres`: protected tyre catalogue page
@@ -102,8 +109,8 @@ Unauthenticated staff users who visit dashboard routes see the staff login exper
 
 ## What Is Stubbed In Phase 1
 
-- Full appointment booking
-- Mobile/emergency callout workflow
+- Customer self-service appointment booking from WhatsApp option `1`
+- Fully automated mobile/emergency callout confirmation
 - Dashboard-based WhatsApp replies
 - Stripe or bank transfer automation
 - Google Maps/location routing
@@ -195,6 +202,9 @@ After a production build, the Express app serves the public site and staff route
 /
 /admin
 /dashboard
+/dashboard/jobs
+/dashboard/job-log
+/dashboard/quotes
 /dashboard/conversations
 /dashboard/customers
 /dashboard/tyres
@@ -258,6 +268,10 @@ Dashboard APIs:
 - `GET /api/dashboard/jobs/:id`
 - `PATCH /api/dashboard/jobs/:id`
 - `PATCH /api/dashboard/jobs/:id/status`
+- `GET /api/dashboard/quotes`
+- `POST /api/dashboard/quotes`
+- `PATCH /api/dashboard/quotes/:id`
+- `POST /api/dashboard/quotes/:id/convert`
 - `GET /api/dashboard/conversations`
 - `GET /api/dashboard/conversations/:id`
 - `GET /api/dashboard/customers`
@@ -324,37 +338,122 @@ Tyre lookup accepts:
 
 All are normalised to `205/55/R16`.
 
-## Phase 2 Job Workflow
+## Phase 2 Operating Workflows
 
-### Manual Job Capture
+Phase 2 separates the real shop workflows:
 
-Staff can create jobs from `/dashboard/jobs` for traditional shop workflows:
+1. Quote / price check workflow
+2. Appointment diary workflow
+3. Completed job log workflow
 
-- Customer name
-- Phone number
-- Vehicle registration
-- Tyre size
-- Tyre brand/category
-- Job type
-- Job source
-- Service required
-- Issue description
-- Address/location text
-- Preferred date
-- Preferred time
-- Urgency
-- Price estimate
-- Internal notes
+### Digital Job Log
+
+`/dashboard/job-log` replaces the current paper RTS sheet. Its visible table columns mirror the paper layout:
+
+- Date / Type
+- Tyre Description
+- Stock / Order
+- Quantity
+- Fitter
+- Cost
+- Payment Method
+
+The fast `Add Completed Job` form captures:
+
+- Date
+- Type
+- Tyre description
+- Stock/order status
+- Quantity
+- Fitter
+- Cost
+- Payment method
 - Payment status
+- Customer name optional
+- Phone number optional
+- Vehicle registration optional
+- Notes optional
 
-Manual saves require only customer phone or customer name, job type, and service required. Defaults are intentionally quick:
+Completed job log defaults are intentionally close to the paper process:
 
-- `source = manual`
-- `status = confirmed`
+- `source = walk_in`
+- `status = completed`
+- `quantity = 1`
+- `stock_order_status = unknown`
+- `payment_method = not_paid`
 - `payment_status = pending`
-- `urgency = unknown`
 
-Manual source options are `manual`, `walk_in`, and `phone`.
+Staff can save completed job entries without customer details. The system only requires a service/type or tyre description so completely blank rows are not stored.
+
+### Appointment Diary
+
+`/dashboard/jobs` is the appointment diary and schedule board replacing the physical handbook. It shows:
+
+- New WhatsApp/manual requests
+- Today
+- Tomorrow
+- This week
+- Unscheduled
+- Completed
+- Cancelled
+
+Appointments capture customer name, phone, vehicle registration, tyre size or tyre description, appointment date, appointment time, job type, notes, source, and status.
+
+Appointment/job statuses include:
+
+- `booked`
+- `confirmed`
+- `arrived`
+- `in_progress`
+- `completed`
+- `cancelled`
+- `no_show`
+- `reschedule_requested`
+
+The wider owner-controlled lifecycle also includes `new_request`, `awaiting_owner_confirmation`, `scheduled`, `rescheduled`, `cancellation_requested`, `en_route`, `payment_pending`, `paid`, and `unable_to_complete`.
+
+### Manual Staff Actions
+
+The dashboard exposes quick actions for:
+
+- `Add Appointment`
+- `Add Mobile Job Request`
+- `Add Completed Job`
+
+Manual source options are `manual`, `walk_in`, and `phone`. WhatsApp-created jobs keep `source = whatsapp`.
+
+### Quote / Supplier Price Check
+
+`/dashboard/quotes` provides a Phase 2 foundation for the PC supplier price-check process. It does not connect to supplier systems yet.
+
+Quote records capture:
+
+- Customer name optional
+- Phone number optional
+- Vehicle registration optional
+- Tyre size / tyre description
+- Supplier checked optional
+- Supplier price optional
+- Quoted price
+- Quote status
+- Notes
+
+Quote statuses are:
+
+- `draft`
+- `price_checked`
+- `quoted`
+- `accepted`
+- `declined`
+- `expired`
+- `converted_to_job`
+
+Accepted quotes can be converted into either:
+
+- a booked appointment, or
+- a completed job log entry
+
+Live supplier price search remains a future phase.
 
 ### WhatsApp Mobile Job Intake
 
@@ -411,6 +510,7 @@ Supported lifecycle statuses:
 
 - `new_request`
 - `awaiting_owner_confirmation`
+- `booked`
 - `confirmed`
 - `scheduled`
 - `reschedule_requested`
@@ -442,10 +542,34 @@ Payment links are not built yet. Phase 2 supports manual payment status tracking
 
 - `not_required`
 - `pending`
-- `payment_pending`
 - `paid`
 - `part_paid`
 - `failed`
+- `refunded`
+
+Payment method is stored separately from payment status:
+
+- `cash`
+- `card`
+- `bank_transfer`
+- `not_paid`
+- `other`
+
+Examples:
+
+- `payment_method = card`, `payment_status = paid`
+- `payment_method = bank_transfer`, `payment_status = pending`
+
+### Fitter, Tyre Description, And Stock / Order
+
+The digital job log supports the fields from the paper sheet:
+
+- `fitter_name` is simple text in Phase 2. Staff/user assignment can be added later.
+- `tyre_size` stores sizes such as `205/55/R16`.
+- `tyre_description` stores what staff write on paper, such as `205/55/R16 Budget`, `Puncture repair`, `Valve replacement`, or `Wheel balancing`.
+- `stock_order_status` uses `stock`, `ordered`, `customer_supplied`, `not_applicable`, or `unknown`.
+
+Full inventory management is not part of Phase 2.
 
 ## Seed Tyre Catalogue
 
@@ -499,7 +623,7 @@ After deployment:
 - Inbound bodies are trimmed and capped before logging.
 - Raw webhook payloads are stored for debugging/audit but are not shown in the dashboard UI.
 - Public frontend code uses only `VITE_PUBLIC_*` contact values and does not expose Twilio secrets.
-- Audit logs are written for handoff events and tyre catalogue changes.
+- Audit logs are written for handoff events, tyre catalogue changes, job changes, and quote changes.
 - Production dependency audit check used: `npm audit --omit=dev --audit-level=critical`.
 
 ## Known Limitations
@@ -512,6 +636,7 @@ After deployment:
 - Phone-call AI assistant is not built yet.
 - Google Maps/geocoding is not built yet.
 - Stripe/payment links are not built yet.
+- Live supplier price search is not built yet; Phase 2 only records manual supplier checks.
 - AI/Claude free-text interpretation is not built yet.
 - Scheduling does not yet optimise routes.
 - Media/photo files are logged as metadata only; no image processing or owner preview is built yet.
@@ -541,28 +666,19 @@ Future tables should include:
 - `service_prices`
 - `service_items_on_job`
 
-### Manual Walk-In Workflow
+### Manual Walk-In Workflow Enhancements
 
-Future dashboard support should include Quick Add Walk-In Job with:
+Phase 2 includes fast completed job logging for walk-ins. Future improvements can add reporting, repeat-customer shortcuts, printable/exportable daily sheets, and service-line breakdowns.
 
-- Vehicle registration
-- Customer name optional
-- Phone optional
-- Tyre size
-- Service done
-- Price
-- Payment method
-- Notes
+### Quote Workflow Enhancements
 
-### Quote Workflow
-
-Future workflow:
+Phase 2 includes manual quote capture and quote-to-job conversion. Future workflow automation can deepen this path:
 
 ```text
 Enquiry -> Quote Sent -> Accepted -> Booked -> Confirmed -> Completed -> Paid
 ```
 
-Also support quote declined and quote expired.
+Live supplier search, quote expiry automation, and WhatsApp quote messages remain future work.
 
 ### Deeper Cancellation and Rebooking Workflow
 

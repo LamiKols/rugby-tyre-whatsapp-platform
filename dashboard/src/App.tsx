@@ -10,6 +10,8 @@ import { HandoffsPage } from "./pages/HandoffsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { PublicLandingPage } from "./pages/PublicLandingPage";
 import { JobsSchedulePage } from "./pages/JobsSchedulePage";
+import { JobLogPage } from "./pages/JobLogPage";
+import { QuotesPage } from "./pages/QuotesPage";
 
 function route() {
   if (window.location.pathname.startsWith("/dashboard/jobs")) {
@@ -17,6 +19,10 @@ function route() {
   }
 
   switch (window.location.pathname) {
+    case "/dashboard/job-log":
+      return <JobLogPage />;
+    case "/dashboard/quotes":
+      return <QuotesPage />;
     case "/dashboard/conversations":
       return <ConversationsPage />;
     case "/dashboard/customers":

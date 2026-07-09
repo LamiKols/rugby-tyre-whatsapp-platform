@@ -17,9 +17,14 @@ function toJobRecord(job: {
   job_reference: string;
   customer_id: string;
   conversation_id: string | null;
+  assigned_user_id: string | null;
   vehicle_registration: string | null;
   tyre_size: string | null;
+  tyre_description: string | null;
   tyre_brand: string | null;
+  stock_order_status: string;
+  quantity: number;
+  fitter_name: string | null;
   job_type: string;
   source: string;
   status: string;
@@ -34,8 +39,11 @@ function toJobRecord(job: {
   scheduled_start: Date | null;
   scheduled_end: Date | null;
   urgency: string;
+  cost: unknown;
   price_estimate: unknown;
+  payment_method: string | null;
   payment_status: string | null;
+  notes: string | null;
   internal_notes: string | null;
   customer_notes: string | null;
   cancellation_reason: string | null;
@@ -54,6 +62,7 @@ function toJobRecord(job: {
     customer_phone: job.customer?.phone ?? null,
     location_lat: decimalToNumber(job.location_lat),
     location_lng: decimalToNumber(job.location_lng),
+    cost: decimalToNumber(job.cost),
     price_estimate: decimalToNumber(job.price_estimate)
   };
 }
@@ -112,9 +121,14 @@ export class PrismaJobRepository {
         job_reference: jobReference,
         customer_id: customer.id,
         conversation_id: input.conversation_id,
+        assigned_user_id: cleanOptional(input.assigned_user_id),
         vehicle_registration: cleanOptional(input.vehicle_registration),
         tyre_size: cleanOptional(input.tyre_size),
+        tyre_description: cleanOptional(input.tyre_description),
         tyre_brand: cleanOptional(input.tyre_brand),
+        stock_order_status: input.stock_order_status ?? "unknown",
+        quantity: input.quantity ?? 1,
+        fitter_name: cleanOptional(input.fitter_name),
         job_type: input.job_type,
         source: input.source,
         status: input.status,
@@ -128,12 +142,21 @@ export class PrismaJobRepository {
         preferred_time_text: cleanOptional(input.preferred_time_text),
         scheduled_start: input.scheduled_start,
         scheduled_end: input.scheduled_end,
+        completed_at:
+          input.completed_at ??
+          (input.status === "completed" || input.status === "paid" ? new Date() : undefined),
         urgency: input.urgency,
+        cost:
+          input.cost === null || input.cost === undefined
+            ? undefined
+            : new Prisma.Decimal(input.cost),
         price_estimate:
           input.price_estimate === null || input.price_estimate === undefined
             ? undefined
             : new Prisma.Decimal(input.price_estimate),
+        payment_method: input.payment_method ?? "not_paid",
         payment_status: input.payment_status ?? "pending",
+        notes: cleanOptional(input.notes),
         internal_notes: cleanOptional(input.internal_notes),
         customer_notes: cleanOptional(input.customer_notes)
       },
@@ -177,6 +200,10 @@ export class PrismaJobRepository {
       where: { id: jobId },
       data: {
         ...input,
+        cost:
+          input.cost === null || input.cost === undefined
+            ? (input.cost as null | undefined)
+            : new Prisma.Decimal(Number(input.cost)),
         price_estimate:
           input.price_estimate === null || input.price_estimate === undefined
             ? (input.price_estimate as null | undefined)
@@ -206,4 +233,3 @@ export class PrismaJobRepository {
     return toJobRecord(job);
   }
 }
-
