@@ -30,5 +30,10 @@ describe("tyre catalogue lookup", () => {
     expect(result.parsed?.canonical).toBe("185/50/R16");
     expect(result.options).toEqual([]);
   });
-});
 
+  it("does not expose helper-only base fields in Prisma seed payload data", () => {
+    expect(tyreSeedData).toHaveLength(30);
+    expect(tyreSeedData.every((item) => !("base" in item))).toBe(true);
+    expect(tyreSeedData.every((item) => typeof item.price === "number" && typeof item.fitted_price === "number")).toBe(true);
+  });
+});

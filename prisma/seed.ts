@@ -1,8 +1,30 @@
 import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../core/security/adminAuth.js";
-import { tyreSeedData } from "../modules/tyres/seedData.js";
+import { tyreSeedData, type TyreSeedOption } from "../modules/tyres/seedData.js";
 
 const prisma = new PrismaClient();
+
+function tyreSeedId(tyre: Pick<TyreSeedOption, "size" | "category">) {
+  return `${tyre.size}-${tyre.category}`.replace(/[^A-Za-z0-9]/g, "-").toLowerCase();
+}
+
+function tyreCataloguePayload(tyre: TyreSeedOption) {
+  return {
+    size: tyre.size,
+    width: tyre.width,
+    profile: tyre.profile,
+    rim: tyre.rim,
+    brand: tyre.brand,
+    category: tyre.category,
+    price: tyre.price,
+    fitted_price: tyre.fitted_price,
+    availability_status: tyre.availability_status,
+    quantity_available: tyre.quantity_available,
+    is_placeholder_seed_data: tyre.is_placeholder_seed_data,
+    notes: tyre.notes,
+    active: tyre.active
+  };
+}
 
 async function main() {
   const seedOwnerEmail = process.env.SEED_OWNER_EMAIL?.trim().toLowerCase();
@@ -28,14 +50,16 @@ async function main() {
   }
 
   for (const tyre of tyreSeedData) {
+    const payload = tyreCataloguePayload(tyre);
+
     await prisma.tyreCatalogue.upsert({
       where: {
-        id: `${tyre.size}-${tyre.category}`.replace(/[^A-Za-z0-9]/g, "-").toLowerCase()
+        id: tyreSeedId(tyre)
       },
-      update: tyre,
+      update: payload,
       create: {
-        id: `${tyre.size}-${tyre.category}`.replace(/[^A-Za-z0-9]/g, "-").toLowerCase(),
-        ...tyre
+        id: tyreSeedId(tyre),
+        ...payload
       }
     });
   }
