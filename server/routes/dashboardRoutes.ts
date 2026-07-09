@@ -8,6 +8,8 @@ import { idParamSchema, paginationQuerySchema } from "../../core/validation/comm
 import { normalizeTyreSize, parseTyreSize } from "../../modules/tyres/tyreSize.js";
 import { PrismaAuditLogger } from "../repositories/prismaAuditLogger.js";
 import { PrismaTyreCatalogueRepository } from "../repositories/prismaTyreCatalogueRepository.js";
+import { createDashboardJobRoutes } from "./dashboardJobRoutes.js";
+import { createDashboardQuoteRoutes } from "./dashboardQuoteRoutes.js";
 
 const tyreInputSchema = z.object({
   size: z.string().min(1),
@@ -48,10 +50,17 @@ export function createDashboardRoutes(env: AppEnv, prisma: PrismaClient) {
   const auditLogger = new PrismaAuditLogger(prisma);
 
   router.use(requireAdmin);
+  router.use("/jobs", createDashboardJobRoutes(env, prisma, auditLogger));
+  router.use("/quotes", createDashboardQuoteRoutes(prisma, auditLogger));
 
   router.get("/summary", async (_req, res, next) => {
     try {
-      const [recentConversations, handoffCount, customerCount, tyreCount, recentMessages] =
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const tomorrowStart = new Date(todayStart);
+      tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+
+      const [recentConversations, handoffCount, customerCount, tyreCount, recentMessages, jobCounts] =
         await Promise.all([
           prisma.conversation.findMany({
             take: 5,
@@ -68,7 +77,37 @@ export function createDashboardRoutes(env: AppEnv, prisma: PrismaClient) {
             take: 6,
             orderBy: { created_at: "desc" },
             include: { customer: true }
-          })
+          }),
+          Promise.all([
+            prisma.job.count({
+              where: {
+                OR: [
+                  { scheduled_start: { gte: todayStart, lt: tomorrowStart } },
+                  { preferred_date: { gte: todayStart, lt: tomorrowStart } }
+                ],
+                status: { notIn: ["cancelled", "completed", "paid", "no_show"] }
+              }
+            }),
+            prisma.job.count({
+              where: { source: "whatsapp", status: "awaiting_owner_confirmation" }
+            }),
+            prisma.job.count({
+              where: {
+                urgency: "emergency",
+                status: { notIn: ["cancelled", "completed", "paid", "no_show"] }
+              }
+            }),
+            prisma.job.count({ where: { status: "reschedule_requested" } }),
+            prisma.job.count({ where: { status: "cancellation_requested" } }),
+            prisma.job.count({
+              where: {
+                OR: [
+                  { status: "payment_pending" },
+                  { payment_status: { in: ["pending", "part_paid"] } }
+                ]
+              }
+            })
+          ])
         ]);
 
       res.json({
@@ -77,6 +116,12 @@ export function createDashboardRoutes(env: AppEnv, prisma: PrismaClient) {
           handoffsRequiringAttention: handoffCount,
           knownCustomers: customerCount,
           tyreCatalogueItems: tyreCount,
+          jobsToday: jobCounts[0],
+          pendingWhatsAppRequests: jobCounts[1],
+          emergencyJobs: jobCounts[2],
+          rescheduleRequests: jobCounts[3],
+          cancellationRequests: jobCounts[4],
+          paymentPending: jobCounts[5],
           systemHealth: getHealth(env.DATABASE_URL)
         },
         recentActivity: recentMessages.map((message) => ({
@@ -349,4 +394,3 @@ export function createDashboardRoutes(env: AppEnv, prisma: PrismaClient) {
 
   return router;
 }
-

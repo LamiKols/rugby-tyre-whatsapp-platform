@@ -13,6 +13,7 @@ export interface ConversationRecord {
   current_intent?: string | null;
   current_state: string;
   failed_attempts: number;
+  state_data?: Record<string, unknown> | null;
   handoff_required: boolean;
   handoff_reason?: string | null;
 }
@@ -48,6 +49,7 @@ export interface ConversationPatch {
   current_intent?: string | null;
   current_state?: string;
   failed_attempts?: number;
+  state_data?: Record<string, unknown> | null;
   handoff_required?: boolean;
   handoff_reason?: string | null;
 }
@@ -94,4 +96,3 @@ export interface ConversationFlowResult {
 export interface ConversationFlow {
   handle(context: ConversationFlowContext): Promise<ConversationFlowResult>;
 }
-

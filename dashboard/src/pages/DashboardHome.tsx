@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity, HeartPulse, MessageCircle, Siren, Tags, Users } from "lucide-react";
+import { Activity, CalendarDays, Clock3, CreditCard, HeartPulse, MessageCircle, Siren, Tags, Users } from "lucide-react";
 import { api, formatDate } from "../lib/api";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
@@ -10,6 +10,12 @@ interface Summary {
     handoffsRequiringAttention: number;
     knownCustomers: number;
     tyreCatalogueItems: number;
+    jobsToday: number;
+    pendingWhatsAppRequests: number;
+    emergencyJobs: number;
+    rescheduleRequests: number;
+    cancellationRequests: number;
+    paymentPending: number;
     systemHealth: { status: string; database: string; timestamp: string };
   };
   recentActivity: Array<{
@@ -44,6 +50,37 @@ export function DashboardHome() {
         },
         { label: "Known customers", value: summary.cards.knownCustomers, icon: Users, tone: "slate" },
         { label: "Tyre options", value: summary.cards.tyreCatalogueItems, icon: Tags, tone: "slate" },
+        { label: "Jobs today", value: summary.cards.jobsToday, icon: CalendarDays, tone: "green" },
+        {
+          label: "Pending WhatsApp",
+          value: summary.cards.pendingWhatsAppRequests,
+          icon: MessageCircle,
+          tone: summary.cards.pendingWhatsAppRequests > 0 ? "amber" : "green"
+        },
+        {
+          label: "Emergency jobs",
+          value: summary.cards.emergencyJobs,
+          icon: Siren,
+          tone: summary.cards.emergencyJobs > 0 ? "red" : "green"
+        },
+        {
+          label: "Reschedules",
+          value: summary.cards.rescheduleRequests,
+          icon: Clock3,
+          tone: summary.cards.rescheduleRequests > 0 ? "amber" : "green"
+        },
+        {
+          label: "Cancellations",
+          value: summary.cards.cancellationRequests,
+          icon: Siren,
+          tone: summary.cards.cancellationRequests > 0 ? "red" : "green"
+        },
+        {
+          label: "Payment pending",
+          value: summary.cards.paymentPending,
+          icon: CreditCard,
+          tone: summary.cards.paymentPending > 0 ? "amber" : "green"
+        },
         { label: "System health", value: "OK", icon: HeartPulse, tone: "green" }
       ]
     : [];
@@ -51,7 +88,7 @@ export function DashboardHome() {
   return (
     <>
       <PageHeader title="What needs attention now" eyebrow="Dashboard Home" />
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => {
           const Icon = card.icon;
           return (
@@ -60,7 +97,7 @@ export function DashboardHome() {
                 <div className="rounded-md bg-slate-100 p-2 text-whatsapp-700">
                   <Icon className="h-5 w-5" />
                 </div>
-                <StatusBadge tone={card.tone as "green" | "amber" | "slate"}>{card.label}</StatusBadge>
+                <StatusBadge tone={card.tone as "green" | "amber" | "red" | "slate"}>{card.label}</StatusBadge>
               </div>
               <p className="mt-5 text-3xl font-bold">{card.value}</p>
             </article>
@@ -93,4 +130,3 @@ export function DashboardHome() {
     </>
   );
 }
-
