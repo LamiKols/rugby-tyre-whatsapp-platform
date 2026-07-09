@@ -11,6 +11,7 @@ channel = "stable-25_05"
 [userenv.shared]
 PORT = "3000"
 NODE_ENV = "development"
+ADMIN_PASSWORD = "Rugbytyre123"
 
 [workflows]
 runButton = "Project"
