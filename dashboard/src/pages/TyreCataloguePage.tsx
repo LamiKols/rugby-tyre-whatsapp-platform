@@ -3,6 +3,7 @@ import { Plus, Search } from "lucide-react";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { api, formatCurrency } from "../lib/api";
+import { canEditTyres, type SessionUser } from "../lib/auth";
 
 interface Tyre {
   id: string;
@@ -31,11 +32,16 @@ const emptyForm = {
   active: true
 };
 
-export function TyreCataloguePage() {
+interface TyreCataloguePageProps {
+  currentUser: SessionUser;
+}
+
+export function TyreCataloguePage({ currentUser }: TyreCataloguePageProps) {
   const [tyres, setTyres] = useState<Tyre[]>([]);
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Tyre | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const canManageTyres = canEditTyres(currentUser);
 
   const endpoint = useMemo(
     () => `/api/dashboard/tyres${search ? `?search=${encodeURIComponent(search)}` : ""}`,
@@ -49,6 +55,10 @@ export function TyreCataloguePage() {
   useEffect(load, [endpoint]);
 
   function edit(tyre: Tyre) {
+    if (!canManageTyres) {
+      return;
+    }
+
     setEditing(tyre);
     setForm({
       size: tyre.size,
@@ -81,12 +91,12 @@ export function TyreCataloguePage() {
       <PageHeader
         title="Tyre Catalogue"
         eyebrow="Phase 1 price lookup"
-        actions={
+        actions={canManageTyres ? (
           <button className="button-secondary" onClick={() => setForm(emptyForm)}>
             <Plus className="mr-2 h-4 w-4" />
             Add tyre option
           </button>
-        }
+        ) : undefined}
       />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
@@ -125,6 +135,7 @@ export function TyreCataloguePage() {
           </div>
         </section>
 
+        {canManageTyres ? (
         <form className="panel h-fit p-5" onSubmit={save}>
           <h3 className="text-lg font-bold">{editing ? "Edit tyre option" : "Add tyre option"}</h3>
           <div className="mt-4 grid gap-3">
@@ -151,8 +162,8 @@ export function TyreCataloguePage() {
           </div>
           <button className="button-primary mt-5 w-full">{editing ? "Save changes" : "Create tyre option"}</button>
         </form>
+        ) : null}
       </div>
     </>
   );
 }
-

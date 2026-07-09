@@ -3,6 +3,7 @@ import { CalendarDays, CheckCircle2, Clock3, CreditCard, MapPin, Plus, Siren, Wr
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { api, formatCurrency, formatDate } from "../lib/api";
+import { canWriteJobs, type SessionUser } from "../lib/auth";
 import {
   closedStatuses,
   compactStatus,
@@ -109,7 +110,11 @@ function jobToForm(job: Job) {
   };
 }
 
-export function JobsSchedulePage() {
+interface JobsSchedulePageProps {
+  currentUser: SessionUser;
+}
+
+export function JobsSchedulePage({ currentUser }: JobsSchedulePageProps) {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selected, setSelected] = useState<Job | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -119,6 +124,7 @@ export function JobsSchedulePage() {
   const selectedId = window.location.pathname.startsWith("/dashboard/jobs/")
     ? window.location.pathname.split("/").pop()
     : null;
+  const canManageJobs = canWriteJobs(currentUser);
 
   function loadJobs() {
     api<Job[]>("/api/dashboard/jobs")
@@ -261,7 +267,7 @@ export function JobsSchedulePage() {
       <PageHeader
         title="Jobs / Schedule"
         eyebrow="Appointment diary"
-        actions={
+        actions={canManageJobs ? (
           <div className="flex flex-wrap gap-2">
             <button className="button-primary" onClick={startAppointment}>
               <Plus className="mr-2 h-4 w-4" />
@@ -276,7 +282,7 @@ export function JobsSchedulePage() {
               Add Completed Job
             </button>
           </div>
-        }
+        ) : undefined}
       />
 
       <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.2fr)_430px]">
@@ -321,6 +327,7 @@ export function JobsSchedulePage() {
         </section>
 
         <aside className="space-y-5">
+          {canManageJobs ? (
           <section className="panel p-5">
             <h3 className="text-lg font-bold">{editingJobId ? "Edit job" : "Quick add"}</h3>
             <form className="mt-4 grid gap-3" onSubmit={saveJob}>
@@ -415,6 +422,7 @@ export function JobsSchedulePage() {
               </button>
             </form>
           </section>
+          ) : null}
 
           <section className="panel p-5">
             {selected ? (
@@ -479,17 +487,21 @@ export function JobsSchedulePage() {
                     </div>
                   ) : null}
                 </dl>
-                <button className="button-secondary mt-5 w-full" onClick={editSelected}>
-                  <Wrench className="mr-2 h-4 w-4" />
-                  Edit job
-                </button>
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  {statusActions.map(([status, label]) => (
-                    <button className="button-secondary px-3 py-2" key={status} onClick={() => updateStatus(status)}>
-                      {label}
+                {canManageJobs ? (
+                  <>
+                    <button className="button-secondary mt-5 w-full" onClick={editSelected}>
+                      <Wrench className="mr-2 h-4 w-4" />
+                      Edit job
                     </button>
-                  ))}
-                </div>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      {statusActions.map(([status, label]) => (
+                        <button className="button-secondary px-3 py-2" key={status} onClick={() => updateStatus(status)}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
               </>
             ) : (
               <p className="text-sm text-slate-600">Select a job to see detail and actions.</p>

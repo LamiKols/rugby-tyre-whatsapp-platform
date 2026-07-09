@@ -1,28 +1,31 @@
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { hashPassword } from "../core/security/adminAuth.js";
 import { tyreSeedData } from "../modules/tyres/seedData.js";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const adminPassword = process.env.ADMIN_PASSWORD ?? "change-me-before-use";
-  const password_hash = await bcrypt.hash(adminPassword, 10);
+  const seedOwnerEmail = process.env.SEED_OWNER_EMAIL?.trim().toLowerCase();
+  const seedOwnerPassword = process.env.SEED_OWNER_PASSWORD;
+  const seedOwnerName = process.env.SEED_OWNER_NAME?.trim() || "Rugby Tyre Services Owner";
 
-  await prisma.user.upsert({
-    where: { email: "owner@rugbytyreservices.local" },
-    update: {
-      name: "Rugby Tyre Services Owner",
-      password_hash,
-      active: true
-    },
-    create: {
-      name: "Rugby Tyre Services Owner",
-      email: "owner@rugbytyreservices.local",
-      password_hash,
-      role: "owner",
-      active: true
+  if (seedOwnerEmail && seedOwnerPassword) {
+    const existingOwner = await prisma.user.findUnique({
+      where: { email: seedOwnerEmail }
+    });
+
+    if (!existingOwner) {
+      await prisma.user.create({
+        data: {
+          name: seedOwnerName,
+          email: seedOwnerEmail,
+          password_hash: await hashPassword(seedOwnerPassword),
+          role: "owner",
+          active: true
+        }
+      });
     }
-  });
+  }
 
   for (const tyre of tyreSeedData) {
     await prisma.tyreCatalogue.upsert({
@@ -47,4 +50,3 @@ main()
     await prisma.$disconnect();
     process.exit(1);
   });
-

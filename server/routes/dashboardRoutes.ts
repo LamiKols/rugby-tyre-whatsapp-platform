@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { PrismaClient } from "@prisma/client";
 import type { AppEnv } from "../../core/config/env.js";
 import { getHealth } from "../../core/health/healthService.js";
-import { adminAuthMiddleware } from "../../core/security/adminAuth.js";
+import { adminAuthMiddleware, auditActor, hashPassword, requirePermission, staffRoles } from "../../core/security/adminAuth.js";
 import { idParamSchema, paginationQuerySchema } from "../../core/validation/common.js";
 import { normalizeTyreSize, parseTyreSize } from "../../modules/tyres/tyreSize.js";
 import { PrismaAuditLogger } from "../repositories/prismaAuditLogger.js";
@@ -23,6 +23,38 @@ const tyreInputSchema = z.object({
   notes: z.string().nullable().optional(),
   active: z.coerce.boolean().default(true)
 });
+
+const userCreateSchema = z.object({
+  name: z.string().trim().min(1),
+  email: z.string().trim().email().transform((value) => value.toLowerCase()),
+  role: z.enum(staffRoles).default("staff"),
+  password: z.string().min(8),
+  active: z.coerce.boolean().default(true)
+});
+
+const userPatchSchema = z.object({
+  name: z.string().trim().min(1).optional(),
+  email: z.string().trim().email().transform((value) => value.toLowerCase()).optional(),
+  role: z.enum(staffRoles).optional(),
+  password: z.string().min(8).optional(),
+  active: z.coerce.boolean().optional()
+});
+
+function serializeUser(user: {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  active: boolean;
+  created_at: Date;
+  updated_at: Date;
+}) {
+  return {
+    ...user,
+    created_at: user.created_at.toISOString(),
+    updated_at: user.updated_at.toISOString()
+  };
+}
 
 function serializeMessage(message: {
   id: string;
@@ -45,7 +77,7 @@ function serializeMessage(message: {
 export function createDashboardRoutes(env: AppEnv, prisma: PrismaClient) {
   const router = Router();
   const secret = env.SESSION_SECRET ?? "dev-session-secret-change-before-production";
-  const requireAdmin = adminAuthMiddleware(secret, env.ADMIN_PASSWORD);
+  const requireAdmin = adminAuthMiddleware(secret, env.ADMIN_PASSWORD, prisma);
   const tyreRepository = new PrismaTyreCatalogueRepository(prisma);
   const auditLogger = new PrismaAuditLogger(prisma);
 
@@ -137,7 +169,7 @@ export function createDashboardRoutes(env: AppEnv, prisma: PrismaClient) {
     }
   });
 
-  router.get("/conversations", async (_req, res, next) => {
+  router.get("/conversations", requirePermission("conversations:read"), async (_req, res, next) => {
     try {
       const conversations = await prisma.conversation.findMany({
         orderBy: { updated_at: "desc" },
@@ -166,7 +198,7 @@ export function createDashboardRoutes(env: AppEnv, prisma: PrismaClient) {
     }
   });
 
-  router.get("/conversations/:id", async (req, res, next) => {
+  router.get("/conversations/:id", requirePermission("conversations:read"), async (req, res, next) => {
     try {
       const parsed = idParamSchema.safeParse(req.params);
       if (!parsed.success) {
@@ -206,7 +238,7 @@ export function createDashboardRoutes(env: AppEnv, prisma: PrismaClient) {
     }
   });
 
-  router.get("/customers", async (_req, res, next) => {
+  router.get("/customers", requirePermission("customers:read"), async (_req, res, next) => {
     try {
       const customers = await prisma.customer.findMany({
         orderBy: { last_seen_at: "desc" },
@@ -239,7 +271,7 @@ export function createDashboardRoutes(env: AppEnv, prisma: PrismaClient) {
     }
   });
 
-  router.post("/tyres", async (req, res, next) => {
+  router.post("/tyres", requirePermission("tyres:write"), async (req, res, next) => {
     try {
       const parsed = tyreInputSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -262,7 +294,7 @@ export function createDashboardRoutes(env: AppEnv, prisma: PrismaClient) {
       });
 
       await auditLogger.log({
-        actor_type: "admin",
+        ...auditActor(req),
         action: "tyre_catalogue.created",
         entity_type: "tyre_catalogue",
         entity_id: tyre.id,
@@ -275,7 +307,7 @@ export function createDashboardRoutes(env: AppEnv, prisma: PrismaClient) {
     }
   });
 
-  router.patch("/tyres/:id", async (req, res, next) => {
+  router.patch("/tyres/:id", requirePermission("tyres:write"), async (req, res, next) => {
     try {
       const params = idParamSchema.safeParse(req.params);
       const parsed = tyreInputSchema.partial().safeParse(req.body);
@@ -303,7 +335,7 @@ export function createDashboardRoutes(env: AppEnv, prisma: PrismaClient) {
       });
 
       await auditLogger.log({
-        actor_type: "admin",
+        ...auditActor(req),
         action: "tyre_catalogue.updated",
         entity_type: "tyre_catalogue",
         entity_id: tyre.id,
@@ -316,7 +348,7 @@ export function createDashboardRoutes(env: AppEnv, prisma: PrismaClient) {
     }
   });
 
-  router.get("/handoffs", async (_req, res, next) => {
+  router.get("/handoffs", requirePermission("conversations:read"), async (_req, res, next) => {
     try {
       const handoffs = await prisma.conversation.findMany({
         where: { handoff_required: true },
@@ -343,7 +375,7 @@ export function createDashboardRoutes(env: AppEnv, prisma: PrismaClient) {
     }
   });
 
-  router.patch("/handoffs/:id/resolve", async (req, res, next) => {
+  router.patch("/handoffs/:id/resolve", requirePermission("handoffs:write"), async (req, res, next) => {
     try {
       const parsed = idParamSchema.safeParse(req.params);
       if (!parsed.success) {
@@ -363,7 +395,7 @@ export function createDashboardRoutes(env: AppEnv, prisma: PrismaClient) {
       });
 
       await auditLogger.log({
-        actor_type: "admin",
+        ...auditActor(req),
         action: "handoff.resolved",
         entity_type: "conversation",
         entity_id: conversation.id
@@ -375,7 +407,94 @@ export function createDashboardRoutes(env: AppEnv, prisma: PrismaClient) {
     }
   });
 
-  router.get("/settings", (_req, res) => {
+  router.get("/users", requirePermission("users:manage"), async (_req, res, next) => {
+    try {
+      const users = await prisma.user.findMany({
+        orderBy: [{ active: "desc" }, { name: "asc" }],
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          active: true,
+          created_at: true,
+          updated_at: true
+        }
+      });
+
+      res.json(users.map(serializeUser));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/users", requirePermission("users:manage"), async (req, res, next) => {
+    try {
+      const parsed = userCreateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: parsed.error.flatten() });
+        return;
+      }
+
+      const user = await prisma.user.create({
+        data: {
+          name: parsed.data.name,
+          email: parsed.data.email,
+          role: parsed.data.role,
+          active: parsed.data.active,
+          password_hash: await hashPassword(parsed.data.password)
+        }
+      });
+
+      await auditLogger.log({
+        ...auditActor(req),
+        action: "user.created",
+        entity_type: "user",
+        entity_id: user.id,
+        metadata: { email: user.email, role: user.role }
+      });
+
+      res.status(201).json(serializeUser(user));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.patch("/users/:id", requirePermission("users:manage"), async (req, res, next) => {
+    try {
+      const params = idParamSchema.safeParse(req.params);
+      const parsed = userPatchSchema.safeParse(req.body);
+      if (!params.success || !parsed.success) {
+        res.status(400).json({ error: "Invalid user update" });
+        return;
+      }
+
+      const user = await prisma.user.update({
+        where: { id: params.data.id },
+        data: {
+          name: parsed.data.name,
+          email: parsed.data.email,
+          role: parsed.data.role,
+          active: parsed.data.active,
+          password_hash: parsed.data.password ? await hashPassword(parsed.data.password) : undefined
+        }
+      });
+
+      await auditLogger.log({
+        ...auditActor(req),
+        action: parsed.data.active === false ? "user.deactivated" : "user.updated",
+        entity_type: "user",
+        entity_id: user.id,
+        metadata: { email: user.email, role: user.role, active: user.active }
+      });
+
+      res.json(serializeUser(user));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/settings", requirePermission("settings:manage"), (_req, res) => {
     res.json({
       phase: "placeholder",
       futureSettings: [

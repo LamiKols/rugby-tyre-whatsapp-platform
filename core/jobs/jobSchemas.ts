@@ -25,6 +25,7 @@ export const manualJobCreateSchema = z
   .object({
     customer_name: z.string().trim().optional(),
     phone: z.string().trim().optional(),
+    assigned_user_id: z.string().trim().optional(),
     vehicle_registration: z.string().trim().optional(),
     tyre_size: z.string().trim().optional(),
     tyre_description: z.string().trim().optional(),
@@ -57,6 +58,7 @@ export const manualJobCreateSchema = z
 export const jobPatchSchema = z.object({
   customer_name: z.string().trim().optional(),
   phone: z.string().trim().optional(),
+  assigned_user_id: z.string().trim().nullable().optional(),
   vehicle_registration: z.string().trim().optional(),
   tyre_size: z.string().trim().optional(),
   tyre_description: z.string().trim().optional(),

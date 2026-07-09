@@ -17,6 +17,7 @@ model User {
   created_at             DateTime       @default(now())
   updated_at             DateTime       @updatedAt
   assigned_conversations Conversation[] @relation("AssignedConversations")
+  assigned_jobs          Job[]          @relation("AssignedJobs")
 
   @@map("users")
 }
@@ -162,10 +163,12 @@ model Job {
   updated_at           DateTime  @updatedAt
   customer             Customer  @relation(fields: [customer_id], references: [id])
   conversation         Conversation? @relation(fields: [conversation_id], references: [id])
+  assigned_user        User?     @relation("AssignedJobs", fields: [assigned_user_id], references: [id])
   converted_quotes     Quote[]
 
   @@index([customer_id])
   @@index([conversation_id])
+  @@index([assigned_user_id])
   @@index([status])
   @@index([source])
   @@index([urgency])
